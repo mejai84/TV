@@ -1,7 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
-  "trailingSlash": false,
+
+  "//": [
+    "Vercel despliega la RAIZ del repositorio, pero la aplicacion vive en",
+    "web-tv/. Sin estas reglas, un deploy desde la integracion de GitHub sirve",
+    "el repo vacio y devuelve 404, mientras que un 'vercel --prod' desde",
+    "web-tv/ funciona. Con las reglas, ambos caminos sirven lo mismo."
+  ],
+
+  "rewrites": [
+    { "source": "/", "destination": "/web-tv/index.html" },
+    { "source": "/(.*)", "destination": "/web-tv/$1" }
+  ],
+
   "headers": [
     {
       "source": "/(.*)",
