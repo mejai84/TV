@@ -1,7 +1,5 @@
-# ============================================================
 # Artefactos de la muestra analizada
-# Los APK son originales de terceros con licencia y no van al repositorio.
-# ============================================================
+# Los APK son originales de terceros con licencia ajena y no van al repositorio.
 *.apk
 *.aab
 *.ipa
@@ -10,32 +8,27 @@
 *.so
 *.har
 
-# Salidas de analisis
+# Salidas de analisis y smali generado
 out-*.txt
 out-*.json
+_smali/
 _reference/
 
-# Datos de referencia generados
-# epg.json son 720 programas sinteticos de prueba: se regenera, no se versiona.
-# streams.json SI se versiona: son 3 entradas de demo y hacen que el ejemplo
-# funcione nada mas clonar, sin ninguna descarga externa.
-web-tv/epg.json
-web-tv/es.m3u
+# Datos de prueba generados
+epg.json
+es.m3u
 
-# Binarios de terceros vendorizados
 # hls.min.js es una dependencia de terceros de 413 KB.
 # Se regenera con:
-#   mkdir -p web-tv/vendor
-#   curl -L -o web-tv/vendor/hls.min.js \
+#   mkdir -p vendor
+#   curl -L -o vendor/hls.min.js \
 #     https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js
-web-tv/vendor/
+vendor/
 
-# Sistema
+# Sistema y editores
 Thumbs.db
 desktop.ini
 .DS_Store
-
-# Editores
 .vscode/
 .idea/
 *.swp
@@ -45,3 +38,6 @@ desktop.ini
 *.log
 __pycache__/
 *.pyc
+
+# Vercel
+.vercel
