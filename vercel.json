@@ -1,13 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
 
-  "//": [
-    "La aplicacion esta en la raiz del repositorio, asi que un deploy desde la",
-    "integracion de GitHub y uno manual con 'vercel --prod' sirven exactamente",
-    "lo mismo. Antes vivia en web-tv/ y Vercel desplegaba el repo vacio, con",
-    "lo que el deploy de GitHub devolvia 404."
-  ],
-
   "headers": [
     {
       "source": "/(.*)",

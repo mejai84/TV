@@ -1,0 +1,16 @@
+# Lo que no se sube a Vercel: los APK y el arbol smali son de analisis, no
+# de la aplicacion web, y multiplican el numero de ficheros del despliegue.
+*.apk
+*.aab
+*.ipa
+*.jar
+*.dex
+*.so
+*.har
+_smali/
+_smali_movil/
+tools/
+out-*.txt
+out-*.json
+_reference/
+*.md
