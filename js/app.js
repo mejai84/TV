@@ -138,6 +138,7 @@
 
     $('btnSearch').addEventListener('click', function () { openSearch(); });
     $('btnGuide').addEventListener('click', function () { showScreen('guide'); });
+    bindSwipe();
 
     applyBrand();
 
@@ -355,6 +356,40 @@
     }
   }
 
+  /**
+   * Deslizar el carrusel con el dedo. En televisor esto no pasa, porque
+   * ahi se mueve con el D-pad; se registra igualmente porque solo se
+   * dispara si el dedo toca la pantalla.
+   */
+  function bindSwipe() {
+    var x0 = 0, y0 = 0, tracking = false;
+
+    el.hero.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) return;
+      tracking = true;
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+    }, false);
+
+    el.hero.addEventListener('touchend', function (e) {
+      if (!tracking) return;
+      tracking = false;
+      var t = e.changedTouches[0];
+      if (!t) return;
+
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      // Solo si el gesto fue claramente horizontal: si el dedo se fue
+      // hacia arriba es un scroll y no debe cambiar de slide.
+      if (Math.abs(dx) < 45 || Math.abs(dy) > Math.abs(dx)) return;
+
+      var next = state.heroAt + (dx < 0 ? 1 : -1);
+      if (next >= 0 && next < state.hero.length) {
+        state.heroAt = next;
+        paintFocus();
+      }
+    }, false);
+  }
+
   function renderShelves() {
     if (!state.groups.length) {
       el.shelves.innerHTML = '<div class="epg-empty">Nada que mostrar.<br>' +
@@ -433,7 +468,15 @@
   function openSearch() {
     el.search.className = 'search open';
     el.search.focus();
-    toast('Escribe con el teclado remoto y pulsa BACK para cerrar');
+    // En televisor se teclea con el mando (hay que abrir el teclado en
+    // pantalla); en movil y tableta ya hay teclado fisico y el aviso sobra.
+    toast(isTouch() ? 'Escribe el nombre de un canal'
+                    : 'Escribe con el teclado remoto y pulsa BACK para cerrar');
+  }
+
+  /** true en movil o tableta: cambia el texto de ayuda, no el comportamiento. */
+  function isTouch() {
+    return !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
   }
 
   function closeSearch() {
@@ -533,6 +576,9 @@
   function showScreen(name) {
     state.screen = name;
     el.catalogUI.style.display = (name === 'catalog') ? 'block' : 'none';
+    // En movil el contenedor es un bloque que se desplaza; si se deja en
+    // block, Safari y WebKit de Android lo comentan al cambiar de pantalla
+    // y al volver el contenido aparece en blanco.
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
     if (name !== 'player') player.stop(true);
