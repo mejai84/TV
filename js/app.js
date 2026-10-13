@@ -1,9 +1,10 @@
 /**
- * app.js — Interfaz de television: columna de categorias + estanterias.
+ * app.js — Interfaz de television: lateral de categorias + carrusel + estanterias.
  *
  * Diseno equivalente al del cliente original: una columna lateral de categorias
- * (ColumnListAty) y filas horizontales de contenido (ShelveData). Es lo que hace
- * que un mando D-pad funcione sin scroll fino, a diferencia de una rejilla plana.
+ * (ColumnListAty), un carrusel grande de destacados y filas horizontales de
+ * contenido (ShelveData). Es lo que hace que un mando D-pad funcione sin scroll
+ * fino, a diferencia de una rejilla plana.
  *
  * El teclado se mapea por codigo de tecla, nunca por caracter: un mando de
  * televisor no es un teclado. Se cubren Android TV y webOS/VIDAA.
@@ -30,18 +31,45 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Iconos del lateral. Emojiegis: cada uno es un solo caracter, sin
+   * peticiones de red, y todos los navegadores los pintan.
+   * ---------------------------------------------------------------- */
+  var ICONS = [
+    [/tv|televis|live|directo|general|destacad|principal|vod|pelicula|cine/i, '\uD83D\uDCFA'],
+    [/serie|drama|telenovela/i, '\uD83C\uDFAC'],
+    [/kidd|infantil|children|Disney/i, '\uD83C\uDF1A'],
+    [/anime|anime|toon/i, '\uD83D\uDC80'],
+    [/deport|sport|futbol|caja/i, '\u26BD'],
+    [/notic|news|actualidad|informativ/i, '\uD83D\uDCF0'],
+    [/document|docu|cientific/i, '\uD83D\uDCD6'],
+    [/musica|music/i, '\uD83C\uDFB5'],
+    [/adult|xxx|erotic/i, '\uD83D\uDD11'],
+    [/relig|creencias/i, '\u271D'],
+    [/guia|tvguia/i, '\uD83D\uDCC5'],
+    [/explor|buscar|search/i, '\uD83D\uDD0D']
+  ];
+
+  function iconFor(name) {
+    for (var i = 0; i < ICONS.length; i++) if (ICONS[i][0].test(name)) return ICONS[i][1];
+    return '\uD83D\uDCFA';
+  }
+
+  /* ---------------------------------------------------------------- *
    * Estado
    * ---------------------------------------------------------------- */
   var state = {
     adapter: null,
     items: [],
     groups: [],            // [{ name, items: [...] }]
+    side: [],              // [{ type:'group', idx } | { type:'guide' } | { type:'search' }]
     byId: {},
     onAir: {},
     epgItems: [],
+    hero: [],              // [{ item, group }]
+    heroAt: 0,
     query: '',
     screen: 'catalog',
-    zone: 'cat',           // 'cat' (lateral) | 'shelf'
+    zone: 'cat',           // 'cat' (lateral) | 'hero' | 'shelf'
     cat: 0,
     shelf: 0,
     card: 0
@@ -49,6 +77,7 @@
 
   var player = null;
   var guide = null;
+  var heroTimer = null;
   var el = {};
   function $(id) { return document.getElementById(id); }
 
@@ -57,6 +86,7 @@
    * ---------------------------------------------------------------- */
   function boot() {
     el.shelves   = $('shelves');
+    el.hero      = $('hero');
     el.cats      = $('categories');
     el.status    = $('playerStatus');
     el.playerUI  = $('playerScreen');
@@ -102,9 +132,28 @@
       render();
     });
 
+    el.search.addEventListener('keydown', function (e) {
+      if (e.keyCode === 13 || e.keyCode === 27) el.search.blur();
+    });
+
+    $('btnSearch').addEventListener('click', function () { openSearch(); });
+    $('btnGuide').addEventListener('click', function () { showScreen('guide'); });
+
+    applyBrand();
+
     window.TV = { state: state, guide: guide, player: player, show: showScreen, reload: loadCatalog };
 
     loadCatalog();
+  }
+
+  /** CONFIG.brand.name personalize el logotipo del cliente. */
+  function applyBrand() {
+    var name = (CONFIG.brand && CONFIG.brand.name) || '';
+    if (!name) return;
+    var parts = Utils.trim(name).split(/\s+/);
+    el.brand.querySelector('.brandMark').textContent = parts[0].charAt(0).toUpperCase();
+    el.brand.querySelector('.brandText').innerHTML =
+      Utils.esc(parts.slice(1).join(' ') || parts[0]) + '<em>TV</em>';
   }
 
   function loadCatalog() {
@@ -114,6 +163,7 @@
       for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
       buildGroups();
       render();
+      startHero();
       return loadEpg();
     }).catch(function (e) {
       toast('No se pudo cargar el catalogo: ' + e.message);
@@ -130,10 +180,11 @@
         if (String(state.items[i].title).toLowerCase().indexOf(state.query) > -1) hits.push(state.items[i]);
       }
       state.groups = [{ name: 'Resultados (' + hits.length + ')', items: hits, artificial: true }];
+      buildSide();
       return;
     }
 
-    var map = {}, order = [], q = state.query;
+    var map = {}, order = [];
     for (var j = 0; j < state.items.length; j++) {
       var it = state.items[j];
       var g = it.group || 'Otros';
@@ -150,6 +201,43 @@
     groups.unshift({ name: 'Todos los canales', items: state.items.slice() });
 
     state.groups = groups;
+    buildSide();
+    buildHero();
+  }
+
+  /** Lateral: una entrada por grupo, mas las accesos fijos de la aplicacion. */
+  function buildSide() {
+    var side = [];
+    for (var i = 0; i < state.groups.length; i++) {
+      side.push({ type: 'group', idx: i, name: state.groups[i].name, count: state.groups[i].items.length });
+    }
+    side.push({ type: 'search', name: 'Explorar', count: 0 });
+    side.push({ type: 'guide',  name: 'Guia de TV', count: 0 });
+    state.side = side;
+    if (state.cat >= side.length) state.cat = 0;
+  }
+
+  /**
+   * Destacados del carrusel: se reparte el catalogo para que no salgan cinco
+   * canales del mismo grupo, y se prefieren los que traen logotipo.
+   */
+  function buildHero() {
+    var pool = state.items || [];
+    var picked = [], used = {};
+
+    for (var pass = 0; pass < 2 && picked.length < 8; pass++) {
+      var step = Math.max(1, Math.floor(pool.length / 8));
+      for (var i = 0; i < pool.length && picked.length < 8; i += step) {
+        var it = pool[i];
+        if (!it || used[it.id]) continue;
+        if (pass === 0 && !it.poster) continue;    // 1a pasada: solo con imagen
+        used[it.id] = 1;
+        picked.push({ item: it, group: it.group || 'Destacado' });
+      }
+    }
+
+    state.hero = picked;
+    if (state.heroAt >= picked.length) state.heroAt = 0;
   }
 
   /* ---------------------------------------------------------------- *
@@ -157,25 +245,113 @@
    * ---------------------------------------------------------------- */
   function render() {
     renderCategories();
+    renderHero();
     renderShelves();
     paintFocus();
   }
 
   function renderCategories() {
-    var html = '<div class="sidehead">Categorias</div>';
-    for (var i = 0; i < state.groups.length; i++) {
-      html += '<button class="cat" data-cat="' + i + '" tabindex="0">' +
-              Utils.esc(state.groups[i].name) +
-              ' <em style="color:#5d6675;font-style:normal">' + state.groups[i].items.length + '</em>' +
+    var html = '<div class="sidehead">Navegacion</div>';
+    for (var i = 0; i < state.side.length; i++) {
+      var it = state.side[i];
+      html += '<button class="sideItem" data-cat="' + i + '" tabindex="0">' +
+              '<span class="si">' + iconFor(it.name) + '</span>' +
+              '<span class="st">' + Utils.esc(it.name) + '</span>' +
+              (it.count ? '<span class="sn">' + it.count + '</span>' : '') +
               '</button>';
     }
     el.cats.innerHTML = html;
 
-    var nodes = el.cats.querySelectorAll('.cat');
+    var nodes = el.cats.querySelectorAll('.sideItem');
     for (var j = 0; j < nodes.length; j++) {
       (function (n, idx) {
         n.addEventListener('click', function () { selectCategory(idx); });
       })(nodes[j], j);
+    }
+  }
+
+  function renderHero() {
+    if (!state.hero.length) {
+      el.hero.innerHTML = '<div class="heroEmpty">Sin destacados todavia. ' +
+        'Revisa <code>CONFIG.source</code> en <code>js/config.js</code>.</div>';
+      return;
+    }
+
+    var html = '<div class="heroTrack" id="heroTrack">';
+    for (var i = 0; i < state.hero.length; i++) {
+      var h = state.hero[i];
+      var it = h.item;
+      var live = state.onAir[it.id] || state.onAir[it.tvgId];
+
+      html += '<div class="slide" data-slide="' + i + '">';
+      html += it.poster
+        ? '<div class="artbg" style="background-image:url(\'' + Utils.esc(it.poster) + '\')"></div>'
+        : '<div class="artbg blank"></div>';
+      if (it.poster) {
+        html += '<img class="art" src="' + Utils.esc(it.poster) + '" alt="" ' +
+                'onerror="this.className=\'art blank\';this.remove();">';
+      }
+      html += '<div class="scrim"></div>' +
+              '<div class="info">' +
+                '<span class="chip">' + Utils.esc(h.group) + '</span>' +
+                '<h1>' + Utils.esc(it.title) + '</h1>' +
+                (live ? '<p>Ahora: ' + Utils.esc(live) + '</p>' : '<p></p>') +
+                '<div class="meta">' +
+                  '<span class="tag live">EN VIVO</span>' +
+                  (live ? '<span class="tag">' + Utils.esc(live) + '</span>' : '') +
+                '</div>' +
+              '</div></div>';
+    }
+    html += '</div>' +
+            '<div class="edge l"></div><div class="edge r"></div>' +
+            '<div class="heroDots" id="heroDots">';
+    for (var d = 0; d < state.hero.length; d++) {
+      html += '<i data-dot="' + d + '"></i>';
+    }
+    html += '</div>';
+
+    el.hero.innerHTML = html;
+
+    var slides = el.hero.querySelectorAll('.slide');
+    for (var s = 0; s < slides.length; s++) {
+      (function (n) {
+        n.addEventListener('click', function () {
+          var idx = parseInt(n.getAttribute('data-slide'), 10);
+          state.heroAt = idx;
+          paintFocus();
+          var h = state.hero[idx];
+          if (h) playItem(h.item);
+        });
+      })(slides[s]);
+    }
+
+    var dots = el.hero.querySelectorAll('.heroDots i');
+    for (var q = 0; q < dots.length; q++) {
+      (function (n) {
+        n.addEventListener('click', function (e) {
+          e.stopPropagation();
+          state.heroAt = parseInt(n.getAttribute('data-dot'), 10);
+          paintFocus();
+        });
+      })(dots[q]);
+    }
+
+    paintHero();
+  }
+
+  function paintHero() {
+    var track = $('heroTrack');
+    if (track) track.style.transform = 'translateX(' + (-100 * state.heroAt) + '%)';
+
+    var slides = el.hero.querySelectorAll('.slide');
+    for (var i = 0; i < slides.length; i++) {
+      slides[i].className = slides[i].className.replace(/\s*active\b/, '');
+    }
+    if (slides[state.heroAt]) slides[state.heroAt].className += ' active';
+
+    var dots = el.hero.querySelectorAll('.heroDots i');
+    for (var j = 0; j < dots.length; j++) {
+      dots[j].className = (j === state.heroAt) ? 'on' : '';
     }
   }
 
@@ -194,10 +370,9 @@
 
     for (var s = from; s < to; s++) {
       var g = state.groups[s];
-      var shelfIdx = s - from;
       html += '<section class="shelf" data-shelf="' + s + '">' +
                 '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
-                '<em>' + g.items.length + ' canales</em></div>' +
+                '<em>' + g.items.length + ' canales</em><span class="rule"></span></div>' +
                 '<div class="row" id="row-' + s + '">';
 
       var limit = Math.min(g.items.length, 40);
@@ -217,7 +392,6 @@
         }
 
         html += '<span class="badge live">EN VIVO</span>' +
-                (live ? '<span class="live idle">AHORA</span>' : '') +
                 '<div class="ttl">' + Utils.esc(it.title) + '</div>' +
                 (live ? '<span class="onair">' + Utils.esc(live) + '</span>' : '') +
                 '</div>';
@@ -242,23 +416,44 @@
   }
 
   function selectCategory(idx) {
+    var it = state.side[idx];
+    if (!it) return;
     state.cat = idx;
-    state.shelf = idx;
+
+    if (it.type === 'search') { render(); paintFocus(); openSearch(); return; }
+    if (it.type === 'guide')  { render(); paintFocus(); showScreen('guide'); return; }
+
+    state.shelf = it.idx;
     state.card = 0;
     state.zone = 'shelf';
     render();
     revealCard();
   }
 
+  function openSearch() {
+    el.search.className = 'search open';
+    el.search.focus();
+    toast('Escribe con el teclado remoto y pulsa BACK para cerrar');
+  }
+
+  function closeSearch() {
+    el.search.className = 'search';
+    el.search.blur();
+  }
+
   /* ---------------------------------------------------------------- *
    * Foco
    * ---------------------------------------------------------------- */
   function paintFocus() {
-    var cats = el.cats.querySelectorAll('.cat');
+    var cats = el.cats.querySelectorAll('.sideItem');
     for (var i = 0; i < cats.length; i++) {
       cats[i].className = cats[i].className.replace(/\s*active\b/, '');
     }
     if (state.zone === 'cat' && cats[state.cat]) cats[state.cat].className += ' active';
+
+    if (el.hero) el.hero.className = el.hero.className.replace(/\s*focused\b/, '');
+    if (state.zone === 'hero') el.hero.className += ' focused';
+    paintHero();
 
     var cards = el.shelves.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) {
@@ -341,6 +536,8 @@
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
     if (name !== 'player') player.stop(true);
+    if (name === 'player') stopHero();
+    else if (name === 'catalog') startHero();
 
     el.tabCatalog.className = (name === 'catalog') ? 'active' : '';
     el.tabGuide.className   = (name === 'guide')   ? 'active' : '';
@@ -349,16 +546,36 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Rotacion automatica de los destacados
+   * ---------------------------------------------------------------- */
+  function startHero() {
+    stopHero();
+    if (!state.hero.length || state.hero.length < 2) return;
+    heroTimer = setInterval(function () {
+      if (state.screen !== 'catalog') return;
+      state.heroAt = (state.heroAt + 1) % state.hero.length;
+      paintFocus();
+    }, 7000);
+  }
+
+  function stopHero() {
+    if (heroTimer) { clearInterval(heroTimer); heroTimer = null; }
+  }
+
+  /* ---------------------------------------------------------------- *
    * Navegacion
    * ---------------------------------------------------------------- */
   function bindInput() {
     document.addEventListener('keydown', function (e) {
-      if (e.target === el.search && e.keyCode !== 27) return;
+      if (e.target === el.search && e.keyCode !== 27 && e.keyCode !== 8) return;
 
       if (isKey(e, KEY.OK)) {
         if (state.screen === 'catalog') {
-          if (state.zone === 'cat') { selectCategory(state.cat); }
-          else {
+          if (state.zone === 'cat') selectCategory(state.cat);
+          else if (state.zone === 'hero') {
+            var h = state.hero[state.heroAt];
+            if (h) playItem(h.item);
+          } else {
             var it = state.groups[state.shelf] && state.groups[state.shelf].items[state.card];
             if (it) playItem(it);
           }
@@ -373,10 +590,12 @@
       if (isKey(e, KEY.BACK)) {
         if (state.screen === 'player') { showScreen('catalog'); }
         else if (state.screen === 'guide') { showScreen('catalog'); }
-        else if (state.zone === 'shelf') { state.zone = 'cat'; paintFocus(); }
-        else if (el.search.value) {
-          el.search.value = ''; state.query = ''; buildGroups(); render();
-        } else if (window.history.length > 1) { window.history.back(); }
+        else if (el.search === document.activeElement || el.search.value) {
+          el.search.value = ''; state.query = ''; closeSearch(); buildGroups(); render();
+        }
+        else if (state.zone === 'shelf') { state.zone = 'hero'; paintFocus(); }
+        else if (state.zone === 'hero') { state.zone = 'cat'; paintFocus(); }
+        else if (window.history.length > 1) { window.history.back(); }
         e.preventDefault(); return;
       }
 
@@ -401,15 +620,37 @@
 
   /** dc horizontal, dr vertical. Devuelve true si consumio la pulsacion. */
   function move(dc, dr) {
+    /* ---- lateral ---- */
     if (state.zone === 'cat') {
       if (dr) {
-        state.cat = Math.max(0, Math.min(state.groups.length - 1, state.cat + dr));
+        state.cat = Math.max(0, Math.min(state.side.length - 1, state.cat + dr));
         paintFocus();
       }
-      if (dc > 0) { state.zone = 'shelf'; state.shelf = state.cat; state.card = 0; renderShelves(); paintFocus(); revealCard(); }
+      if (dc > 0) { state.zone = 'hero'; paintFocus(); }
+      else if (dc < 0 && el.search.value) { closeSearch(); }
       return true;
     }
 
+    /* ---- carrusel ---- */
+    if (state.zone === 'hero') {
+      if (dc) {
+        var next = state.heroAt + dc;
+        if (next < 0) state.zone = 'cat';
+        else if (next < state.hero.length) state.heroAt = next;
+      }
+      if (dr > 0) {
+        state.zone = 'shelf';
+        var it = state.side[state.cat];
+        state.shelf = (it && it.type === 'group') ? it.idx : state.shelf;
+        state.card = 0;
+        renderShelves();
+        revealCard();
+      }
+      paintFocus();
+      return true;
+    }
+
+    /* ---- estanterias ---- */
     var g = state.groups[state.shelf];
     if (!g) return false;
     var len = Math.min(g.items.length, 40);
@@ -417,15 +658,21 @@
     if (dc) {
       if (dc > 0) state.card = Math.min(len - 1, state.card + 1);
       else if (state.card > 0) state.card -= 1;
-      else { state.zone = 'cat'; }        // izquierda en el primer elemento
+      else { state.zone = 'hero'; }        // izquierda en el primer elemento
     }
 
     if (dr) {
-      var next = state.shelf + dr;
-      if (next >= 0 && next < state.groups.length) {
-        state.shelf = next;
-        state.card = Math.min(state.card, Math.max(0, Math.min(state.groups[next].items.length, 40) - 1));
-        if (next - state.shelf < -4 || next - state.shelf > 8) renderShelves();
+      var prev = state.shelf;
+      var target = prev + dr;
+      if (target < 0) { state.zone = 'hero'; state.card = 0; }
+      else if (target < state.groups.length) {
+        state.shelf = target;
+        state.card = Math.min(state.card, Math.max(0, Math.min(state.groups[target].items.length, 40) - 1));
+        // Solo se repinta si la estanteria enfocada entra o sale de la ventana
+        // de 9 filas que se pinta alrededor del foco.
+        if (target < 4 || target >= state.groups.length - 5 || Math.abs(target - prev) > 4) {
+          renderShelves();
+        }
       }
     }
 
@@ -439,6 +686,7 @@
       navigator.remote.playButton.addEventListener('click', function () {
         if (state.screen !== 'catalog') return;
         if (state.zone === 'cat') selectCategory(state.cat);
+        else if (state.zone === 'hero') { var h = state.hero[state.heroAt]; if (h) playItem(h.item); }
         else {
           var it = state.groups[state.shelf] && state.groups[state.shelf].items[state.card];
           if (it) playItem(it);
@@ -455,14 +703,21 @@
     el.tabGuide.addEventListener('click', function () { showScreen('guide'); });
   }
 
+  var WEEK = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
+  var MONTH = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
   function startClock() {
     function tick() {
       var d = new Date();
-      el.clock.textContent = Epg.fmtDay(d.getTime()) + '  ' +
-        Epg.pad2(d.getHours()) + ':' + Epg.pad2(d.getMinutes());
+      var h = d.getHours();
+      var ap = h >= 12 ? 'PM' : 'AM';
+      var h12 = h % 12; if (h12 === 0) h12 = 12;
+      el.clock.innerHTML =
+        Epg.pad2(h12) + ':' + Epg.pad2(d.getMinutes()) + ' ' + ap +
+        '<small>' + WEEK[d.getDay()] + ' ' + Epg.pad2(d.getDate()) + ' ' + MONTH[d.getMonth()] + '</small>';
     }
     tick();
-    setInterval(tick, 30000);
+    setInterval(tick, 15000);
   }
 
   function loadEpg() {
@@ -490,6 +745,7 @@
       var i = Epg.current(byCh.map[ch], now);
       if (i > -1) state.onAir[ch] = byCh.map[ch][i].title;
     }
+    renderHero();
     renderShelves();
     paintFocus();
   }

@@ -41,3 +41,5 @@ __pycache__/
 
 # Vercel
 .vercel
+# Arbol smali del APK movil (Xuper 4).apk
+_smali_movil/
