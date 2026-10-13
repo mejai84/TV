@@ -1,0 +1,33 @@
+[
+  {
+    "id": "demo-bbb",
+    "title": "Big Buck Bunny (via proxy)",
+    "kind": "live",
+    "group": "Demos",
+    "poster": "",
+    "url": [
+      "/proxy/stream?u=https%3A%2F%2Ftest-streams.mux.dev%2Fx36xhzz%2Fx36xhzz.m3u8"
+    ]
+  },
+  {
+    "id": "demo-bipbop",
+    "title": "Apple BipBop Advanced (via proxy)",
+    "kind": "live",
+    "group": "Demos",
+    "poster": "",
+    "url": [
+      "/proxy/stream?u=https%3A%2F%2Fdevstreaming-cdn.apple.com%2Fvideos%2Fstreaming%2Fexamples%2Fimg_bipbop_adv_example_fmp4%2Fmaster.m3u8"
+    ]
+  },
+  {
+    "id": "demo-failover",
+    "title": "Failover: URL 1 rota, cae a la 2",
+    "kind": "live",
+    "group": "Demos",
+    "poster": "",
+    "url": [
+      "/proxy/stream?u=https%3A%2F%2Ftest-streams.mux.dev%2FNO-EXISTE%2Froto.m3u8",
+      "/proxy/stream?u=https%3A%2F%2Ftest-streams.mux.dev%2Fx36xhzz%2Fx36xhzz.m3u8"
+    ]
+  }
+]

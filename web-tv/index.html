@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi TV</title>
+<link rel="stylesheet" href="css/app.css?v=5">
+</head>
+<body>
+
+<!-- ================= CATALOGO ================= -->
+<section id="catalogScreen">
+  <header class="topbar">
+    <div id="brand" class="brand">Mi<span>TV</span></div>
+
+    <nav class="topnav">
+      <button id="tabCatalog" class="active" tabindex="0">Inicio</button>
+      <button id="tabGuide" tabindex="0">Guía</button>
+    </nav>
+
+    <input id="searchInput" class="search" type="text" placeholder="Buscar canales…"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <div id="clock" class="clock"></div>
+  </header>
+
+  <div class="layout">
+    <!-- Columnas = categorias (equivalente a ColumnListAty del cliente original) -->
+    <aside id="categories" class="sidebar"></aside>
+    <!-- Estanterias horizontales (equivalente a ShelveData) -->
+    <main id="shelves" class="shelves" tabindex="0"></main>
+  </div>
+</section>
+
+<!-- ================= GUIA EPG ================= -->
+<section id="guideScreen" style="display:none">
+  <div id="epg" class="epg"></div>
+</section>
+
+<!-- ================= REPRODUCTOR ================= -->
+<section id="playerScreen" style="display:none">
+  <video id="video" playsinline webkit-playsinline controls></video>
+  <div class="overlay">
+    <div class="bar">
+      <h1 id="nowTitle" class="nowTitle"></h1>
+      <div id="playerStatus" class="status"></div>
+    </div>
+    <div id="quality" class="quality"></div>
+    <p class="hint">◀ ▶ Calidad · OK Reproducir/Pausa · BACK Volver</p>
+  </div>
+</section>
+
+<div id="toast" class="toast"></div>
+
+<!--?v=5 fuerza recarga: el cache del navegador de un televisor sobrevive
+     varias sesiones y sigue sirviendo la version anterior de los scripts. -->
+<script src="js/config.js?v=5"></script>
+<script src="js/epg.js?v=5"></script>
+<script src="js/player.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+</body>
+</html>

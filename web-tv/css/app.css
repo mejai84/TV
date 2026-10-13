@@ -1,0 +1,304 @@
+/* ============================================================
+   Cliente TV — tema para 1280x720, estilo aplicacion de IPTV
+   ============================================================
+   Estructura pensada para televisor:
+     · barra lateral fija con categorias  (ColumnListAty)
+     · estanterias horizontales            (ShelveData)
+     · ficha grande con foco muy visible   (D-pad)
+
+   Sin frameworks ni CSS Grid: los navegadores de TV de 2015-2018
+   no lo soportan. Solo flexbox y posicion absoluta.
+   ============================================================ */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: #070a0f;
+  color: #e9edf3;
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+/* ---------------- Cabecera ---------------- */
+.topbar {
+  display: flex; align-items: center;
+  padding: 14px 26px 10px;
+  gap: 16px;
+}
+
+.brand {
+  font-size: 24px; font-weight: 700; letter-spacing: .4px;
+  white-space: nowrap;
+}
+.brand span { color: #4a9dff; }
+
+.topnav { display: flex; gap: 4px; }
+
+.topnav button {
+  padding: 7px 18px;
+  font-size: 14px; color: #8b95a5;
+  background: transparent; border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.topnav button.active,
+.topnav button:focus { color: #fff; border-bottom-color: #4a9dff; outline: none; }
+
+.search {
+  flex: 1 1 auto; min-width: 0; max-width: 340px;
+  height: 36px; margin-left: auto; padding: 0 14px;
+  font-size: 14px; color: #e9edf3;
+  background: #141a24; border: 1px solid #232b39; border-radius: 18px;
+  outline: none;
+}
+.search:focus { border-color: #4a9dff; }
+.search::placeholder { color: #5d6675; }
+
+.clock {
+  font-size: 14px; color: #7c8595; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- Cuerpo: lateral + estanterias ---------------- */
+.layout { display: flex; height: calc(100% - 58px); }
+
+.sidebar {
+  flex: 0 0 186px; width: 186px;
+  padding: 6px 10px 10px 22px;
+  overflow-y: auto;
+  border-right: 1px solid #151b25;
+}
+
+.sidehead {
+  padding: 6px 8px 8px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: #5d6675;
+}
+
+.cat {
+  display: block; width: 100%;
+  padding: 9px 10px; margin-bottom: 2px;
+  font-size: 14px; color: #b9c2d0; text-align: left;
+  background: transparent; border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cat:focus { outline: none; }
+.cat.active {
+  color: #fff; background: #182031;
+  border-left-color: #4a9dff; font-weight: 600;
+}
+
+.shelves {
+  flex: 1 1 auto; min-width: 0;
+  padding: 4px 26px 26px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------- Estanteria ---------------- */
+.shelf { margin-bottom: 26px; }
+
+.shelfhead {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 10px;
+}
+.shelfhead h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.shelfhead em {
+  font-style: normal; font-size: 12px; color: #6a7383;
+}
+
+.row {
+  display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 6px 0 10px;
+  margin: -6px 0 -10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.row::-webkit-scrollbar { display: none; }
+
+/* ---------------- Ficha ---------------- */
+.card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 150px;
+  margin-right: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.thumb {
+  position: relative;
+  width: 100%; padding-bottom: 56.25%;   /* 16:9 */
+  background: #131923 center / contain no-repeat;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Cuadro de color cuando el canal no trae logotipo */
+.thumb.blank {
+  background: linear-gradient(140deg, #1b2433, #101620);
+}
+
+.thumb img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+}
+
+.card.focused .thumb {
+  border-color: #4a9dff;
+  box-shadow: 0 0 0 3px rgba(74,157,255,.30), 0 6px 18px rgba(0,0,0,.6);
+  transform: scale(1.06);
+  transition: transform .12s ease;
+}
+
+.badge {
+  position: absolute; top: 5px; left: 5px;
+  padding: 2px 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: .8px;
+  color: #fff; background: rgba(6,9,14,.85);
+  border-radius: 3px;
+}
+.badge.live { background: #d92d2d; }
+
+.live {
+  position: absolute; top: 5px; right: 5px;
+  padding: 2px 6px;
+  font-size: 9px; font-weight: 700; letter-spacing: .6px;
+  color: #fff; background: #d92d2d; border-radius: 3px;
+}
+.live.idle { background: rgba(6,9,14,.75); color: #9aa4b2; }
+
+.ttl {
+  margin-top: 7px;
+  font-size: 12.5px; line-height: 1.3; color: #9aa4b2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card.focused .ttl { color: #fff; font-weight: 600; }
+
+.onair {
+  display: block; margin-top: 2px;
+  font-size: 11px; color: #35c98a;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------------- Guia ---------------- */
+.epg {
+  position: absolute; top: 58px; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+}
+
+.epg-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 26px 10px;
+}
+.epg-nav {
+  padding: 6px 15px; font-size: 14px; color: #b9c2d0;
+  background: #141a24; border: 1px solid #232b39; border-radius: 6px;
+  cursor: pointer;
+}
+.epg-nav:focus { color: #070a0f; background: #4a9dff; border-color: #4a9dff; outline: none; }
+.epg-range { font-size: 13px; color: #7c8595; }
+
+.epg-labels { flex: 0 0 176px; width: 176px; overflow: hidden; border-right: 1px solid #151b25; }
+.epg-label { height: 56px; padding: 8px 12px; border-bottom: 1px solid #111722; overflow: hidden; }
+.epg-label.focused { background: #182031; }
+.epg-logoname {
+  display: block; font-size: 12.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.epg-label.focused .epg-logoname { color: #4a9dff; }
+.epg-now {
+  display: block; margin-top: 3px; font-size: 11px; color: #7c8595;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.epg-body { flex: 1 1 auto; display: flex; min-height: 0; }
+.epg-scroll { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.epg-axis { display: flex; height: 22px; border-bottom: 1px solid #151b25; }
+.epg-slot {
+  flex: 0 0 auto; font-size: 11px; color: #6a7383;
+  border-left: 1px solid #111722; padding-left: 5px;
+}
+.epg-tracks { position: relative; }
+.epg-row { position: relative; height: 56px; border-bottom: 1px solid #111722; }
+
+.epg-prog {
+  position: absolute; top: 3px; bottom: 3px;
+  padding: 4px 7px; overflow: hidden;
+  background: #182031; border-left: 3px solid #39445a; border-radius: 3px;
+  cursor: pointer;
+}
+.epg-prog b {
+  display: block; font-size: 11.5px; font-weight: 600; color: #d7dee9;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.epg-prog i { display: block; margin-top: 1px; font-size: 10px; font-style: normal; color: #7c8595; }
+.epg-prog.now { background: #1e2941; }
+.epg-prog.sel { border-left-color: #4a9dff; box-shadow: inset 0 0 0 1px rgba(74,157,255,.55); }
+.epg-prog.sel b { color: #fff; }
+
+.epg-prog.t-sports      { border-left-color: #ff8a3d; }
+.epg-prog.t-movie       { border-left-color: #4a9dff; }
+.epg-prog.t-series      { border-left-color: #a56bff; }
+.epg-prog.t-news        { border-left-color: #35c98a; }
+.epg-prog.t-kids        { border-left-color: #ff5c8a; }
+.epg-prog.t-documentary { border-left-color: #46c0d8; }
+
+.epg-needle {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: #e8443f; z-index: 5; pointer-events: none;
+}
+
+.epg-empty {
+  position: absolute; top: 110px; left: 0; right: 0; text-align: center;
+  font-size: 15px; line-height: 1.8; color: #6a7383;
+}
+.epg-empty code {
+  padding: 2px 5px; color: #9fd0ff; background: #141a24; border-radius: 3px;
+}
+
+/* ---------------- Reproductor ---------------- */
+#playerScreen { position: relative; height: 100%; background: #000; }
+#video { width: 100%; height: 100%; background: #000; }
+
+.overlay {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 18px 26px 20px;
+  background: linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,0));
+}
+.bar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.nowTitle { margin: 0; font-size: 19px; font-weight: 600; }
+.status { font-size: 12.5px; color: #98a2b0; text-align: right; }
+.status.error { color: #ff6b6b; }
+
+.quality { margin-top: 11px; min-height: 28px; }
+.q {
+  display: inline-block; margin-right: 6px; padding: 5px 12px;
+  font-size: 12.5px; color: #b9c2d0;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.16); border-radius: 5px;
+  cursor: pointer;
+}
+.q.active, .q:focus { color: #070a0f; background: #fff; border-color: #fff; outline: none; }
+
+.hint { margin: 10px 0 0; font-size: 11.5px; color: #6a7383; }
+
+/* ---------------- Aviso ---------------- */
+.toast {
+  display: none; position: fixed; left: 50%; bottom: 34px;
+  transform: translateX(-50%); max-width: 78%;
+  padding: 10px 20px; font-size: 13.5px;
+  background: rgba(20,26,36,.97);
+  border: 1px solid #232b39; border-radius: 6px; z-index: 60;
+}
