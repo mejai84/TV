@@ -86,7 +86,7 @@
       }
     });
 
-    state.adapter = buildAdapter(CONFIG.source);
+    state.adapter = buildAdapter(activeSource());
 
     bindInput();
     bindRemote();

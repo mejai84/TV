@@ -31,8 +31,19 @@ function merge(base, extra) {
  * Config global. Edita SOLO esto para cambiar de fuente de contenido.
  * ------------------------------------------------------------------ */
 var CONFIG = {
-  // Fuente activa: 'demo' | 'json' | 'm3u' | 'provider'
-  source: 'm3u',
+  /**
+   * Fuente activa: 'demo' | 'json' | 'm3u' | 'provider'
+   *
+   * Por defecto 'demo' porque funciona en cualquier sitio, incluido un
+   * despliegue estatico como Vercel: son tres streams que ya traen CORS y no
+   * pasan por el proxy. Las demas fuentes necesitan el proxy de serve.py,
+   * que no existe en un despliegue estatico: el catalogo se veria pero el
+   * video no.
+   *
+   * Se puede forzar desde la URL sin editar el fichero:
+   *   index.html?src=m3u
+   */
+  source: 'demo',
 
   // Marca visible en la interfaz (multi-tenant, estilo portal).
   brand: {
@@ -548,7 +559,21 @@ ProviderAdapter.prototype.epg = function () {
 
 /* ------------------------------------------------------------------ *
  * Fabrica
+ *
+ * Un parametro en la URL manda sobre CONFIG.source, para probar otra fuente
+ * sin editar ficheros ni tener que volver a desplegar:
+ *   index.html?src=m3u
  * ------------------------------------------------------------------ */
+function activeSource() {
+  try {
+    var m = /[?&]src=([a-z]+)/i.exec(window.location.search || '');
+    if (m && ['demo', 'json', 'm3u', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
+      return m[1].toLowerCase();
+    }
+  } catch (e) { /* file:// o sandbox sin location.search */ }
+  return CONFIG.source;
+}
+
 function buildAdapter(name) {
   switch (name) {
     case 'm3u':
