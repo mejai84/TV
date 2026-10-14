@@ -1519,65 +1519,51 @@ function nextSelectable(from, dir) {
     /* ---- estanterias ---- */
     var g = state.groups[state.shelf];
     if (!g) return false;
-    if (isVerticalResults() && dr) {
-      var visible = Math.min(g.items.length, state.shown[state.shelf] || CHUNK);
+
+    // Navegacion vertical: primero intenta bajar dentro de la estanteria
+    // actual. Si ya se llego al final de lo pintado, carga mas canales.
+    // Solo si ya se llego al ultimo canal visible, salta a la siguiente
+    // estanteria.
+    var pintadas = state.shown[state.shelf] || CHUNK;
+    var len = Math.min(g.items.length, pintadas);
+
+    if (dr) {
       if (dr > 0) {
-        if (state.card >= visible - 1 && visible < g.items.length) {
-          state.shown[state.shelf] = visible + CHUNK;
+        // Bajo: si hay mas canales por pintar, carga mas y baja dentro
+        if (state.card >= len - 1 && len < g.items.length) {
+          state.shown[state.shelf] = len + CHUNK;
           renderShelves();
-          visible = Math.min(g.items.length, state.shown[state.shelf]);
+          len = Math.min(g.items.length, state.shown[state.shelf]);
         }
-        state.card = Math.min(visible - 1, state.card + 1);
-      } else if (state.card > 0) {
-        state.card -= 1;
+        state.card = Math.min(len - 1, state.card + 1);
       } else {
-        state.zone = 'hero';
+        // Arriba: sube dentro de la estanteria actual
+        if (state.card > 0) state.card -= 1;
+        else { state.zone = 'hero'; }
       }
       paintFocus();
       if (state.zone === 'shelf') revealCard();
       return true;
     }
-    var pintadas = state.shown[state.shelf] || CHUNK;
-    var len = Math.min(g.items.length, pintadas);
 
     if (dc) {
       if (dc > 0) {
         if (state.card >= len - 1 && len < g.items.length) {
-          // Se ha llegado al final de lo pintado: se pinta otro tramo y se
-          // sigue. Asi el canal 9000 se alcanza igual que el primero.
           state.shown[state.shelf] = len + CHUNK;
           renderShelves();
         }
-        // Sin el "|| CHUNK" el min() recibiria undefined y devolveria NaN,
-        // dejando el foco roto: la flecha derecha dejaba de funcionar.
         var tope = Math.min(g.items.length, state.shown[state.shelf] || CHUNK);
         state.card = Math.min(tope - 1, state.card + 1);
       }
       else if (state.card > 0) state.card -= 1;
-      else { state.zone = 'hero'; }        // izquierda en el primer elemento
+      else { state.zone = 'hero'; }
+      paintFocus();
+      if (state.zone === 'shelf') revealCard();
+      return true;
     }
 
-    if (dr) {
-      var prev = state.shelf;
-      var target = prev + dr;
-      if (target < 0) { state.zone = 'hero'; state.card = 0; }
-      else if (target < state.groups.length) {
-        state.shelf = target;
-        var tope = Math.min(state.groups[target].items.length,
-                            state.shown[target] || CHUNK);
-        state.card = Math.min(state.card, Math.max(0, tope - 1));
-        applyTheme(state.groups[target].theme);
-        // Solo se repinta si la estanteria enfocada entra o sale de la ventana
-        // de 9 filas que se pinta alrededor del foco.
-        if (target < 4 || target >= state.groups.length - 5 || Math.abs(target - prev) > 4) {
-          renderShelves();
-        }
-      }
-    }
-
-    paintFocus();
-    if (state.zone === 'shelf') revealCard();
-    return true;
+    // Si no hay dr ni dc, no se consumio la pulsacion
+    return false;
   }
 
   function bindRemote() {
