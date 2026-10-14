@@ -1225,19 +1225,9 @@ function nextSelectable(from, dir) {
   }
 
   function loadEpg() {
-    var url = (CONFIG.epg && CONFIG.epg.url) || '';
-    if (!url || !state.adapter.epg) { guide.setData([]); return Promise.resolve(); }
-    return state.adapter.epg().then(function (raw) {
-      var items = EpgSource.matchToCatalog(raw || [], state.items);
-      state.epgItems = items;
-      guide.setData(items);
-      if (items.length) paintOnAir();
-      return items;
-    }).catch(function (e) {
-      if (window.console && console.warn) console.warn('EPG: no se pudo cargar', e);
-      guide.setData([]);
-      return [];
-    });
+    // GUIAS DESACTIVADAS: sin carga automática.
+    // El usuario puede abrir la guía manualmente presionando el botón Tab Guide.
+    return Promise.resolve([]);
   }
 
   function paintOnAir() {
