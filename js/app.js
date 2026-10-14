@@ -316,8 +316,8 @@
           '<code>?cc=mx</code>, <code>?cc=uk</code> o <code>?cc=movies</code>.<br>' +
           'Revisa <code>CONFIG.iptvorg</code> en <code>js/config.js</code>.</div>';
         return;
-      // loadEpg disabled: prevents app from hanging on EPG load;
-      // guide accessible via Tab Guide button
+      // EPG loading disabled to prevent app hang;
+      // guide accessible via Tab Guide
     }).catch(function (e) {
       toast('No se pudo cargar el catalogo: ' + e.message);
       el.shelves.innerHTML =
