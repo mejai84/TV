@@ -35,16 +35,24 @@ public class DecompileTargets extends GhidraScript {
     @Override
     public void run() throws Exception {
 
+        // Uso: DecompileTargets <salida> <addr> [<salida> <addr> ...] [maxCallees]
+        // Las parejas van al principio; un ultimo argumento suelto = maxCallees
         String[] args = getScriptArgs();
-        if (args.length < 6) {
-            println("uso: DecompileTargets <out1> <out2> <out3> <a1> <a2> <a3> [maxCallees]");
+        if (args.length < 2) {
+            println("uso: DecompileTargets (salida addr) [...] [maxCallees]");
             return;
         }
-        String[] outs   = { args[0], args[1], args[2] };
-        long[]   addrs  = { Long.parseLong(args[3], 16),
-                            Long.parseLong(args[4], 16),
-                            Long.parseLong(args[5], 16) };
-        int maxCallees  = (args.length > 6) ? Integer.parseInt(args[6]) : 6;
+        int n = args.length / 2;
+        boolean ultimoSuelto = (args.length % 2) == 1;
+        String[] outs  = new String[n];
+        long[]   addrs = new long[n];
+        int last = ultimoSuelto ? n - 1 : n;
+        for (int i = 0; i < last; i++) {
+            outs[i]  = args[i * 2];
+            addrs[i] = Long.parseLong(args[i * 2 + 1], 16);
+        }
+        int maxCallees = ultimoSuelto ? Integer.parseInt(args[args.length - 1]) : 8;
+        println("Objetivos: " + last);
 
         Address IMAGE = currentProgram.getImageBase();
         println("Imagen base: " + IMAGE);
@@ -88,7 +96,7 @@ public class DecompileTargets extends GhidraScript {
             return;
         }
 
-        for (int i = 0; i < addrs.length; i++) {
+        for (int i = 0; i < last; i++) {
             Address a = IMAGE.add(addrs[i]);
             Address fin = IMAGE.add(addrs[i] + 0x10000);
 

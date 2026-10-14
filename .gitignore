@@ -14,6 +14,9 @@ out-*.json
 _smali/
 _reference/
 
+# Proyecto de Ghidra: es estado local del analisis, no fuente
+_ghidra_proj/
+
 # Datos de prueba generados
 epg.json
 es.m3u

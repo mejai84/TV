@@ -31,6 +31,55 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Categorias de iptv-org: vienen en ingles y agrupadas con ';', asi que
+   * se traducen y se les asigna un tema para el fondo de la pantalla.
+   *
+   * El tema no es una imagen generada (no se pueden generar aqui y
+   * meterian peso y peticiones de red) sino un degradado CSS por familia,
+   * que son unos pocos KiB y se pintan al instante en cualquier motor.
+   * ---------------------------------------------------------------- */
+  var CATEGORIAS = [
+    [/^sports?|deportes/i,        'Deportes',      'sports'],
+    [/^movies?|peliculas?/i,      'Peliculas',     'movies'],
+    [/^series?/i,                 'Series',        'series'],
+    [/^kids?|children|infantil/i, 'Infantil',      'kids'],
+    [/^animation|anime/i,         'Animacion',     'kids'],
+    [/^news|noticias|actualidad/i,'Noticias',      'news'],
+    [/^documentary|documentales/i,'Documentales',  'docs'],
+    [/^music|musica/i,            'Musica',        'music'],
+    [/^entertainment|entretenim/i,'Entretenimiento','entertainment'],
+    [/^comedy|comedia/i,          'Comedia',       'entertainment'],
+    [/^religious|religios/i,      'Religiosos',    'faith'],
+    [/^culture|cultura/i,         'Cultura',       'culture'],
+    [/^classic|clasicos?/i,       'Clasicos',      'culture'],
+    [/^lifestyle|estilo/i,        'Estilo de vida','lifestyle'],
+    [/^family|familiar/i,         'Familiar',      'family'],
+    [/^cooking|cocina/i,          'Cocina',        'lifestyle'],
+    [/^travel|viajes/i,           'Viajes',        'lifestyle'],
+    [/^auto|motor/i,              'Motor',         'sports'],
+    [/^outdoor|aire libre/i,      'Aire libre',    'sports'],
+    [/^business|negocios/i,       'Negocios',      'business'],
+    [/^education|educacion/i,     'Educacion',     'education'],
+    [/^legislative|legislativo/i, 'Legislativo',   'education'],
+    [/^health|salud/i,            'Salud',         'education'],
+    [/^weather|meteorolog/i,      'Meteorologia',  'news'],
+    [/^public|publico/i,          'Publico',       'public'],
+    [/^classic$/i,                'Clasicos',      'culture'],
+    [/^other|otros|undefined/i,   'Otros',         'other']
+  ];
+
+  /** Devuelve [nombre en espanol, tema] para un group-title de iptv-org. */
+  function categoriaEs(nombre) {
+    var n = String(nombre || '');
+    for (var i = 0; i < CATEGORIAS.length; i++) {
+      if (CATEGORIAS[i][0].test(n)) return [CATEGORIAS[i][1], CATEGORIAS[i][2]];
+    }
+    // Sin coincidencia: se conserva el nombre original, en mayusculas y
+    // sin acentos raros, para que al menos se lea bien en pantalla.
+    return [n || 'Otros', 'other'];
+  }
+
+  /* ---------------------------------------------------------------- *
    * Iconos del lateral. Cada entrada devuelve un nombre de clase, no un
    * caracter: los emojis no existen en los navegadores nativos de
    * televisor y salian como recuadros vacios. Las formas se dibujan con
@@ -56,6 +105,30 @@
     return 'tv';
   }
 
+  /**
+   * Listas de iptv-org que se pueden elegir desde el lateral. La primera
+   * entrada es el indice completo, que es lo que se carga por defecto.
+   *
+   * Las de contenido llevan "Solo" porque en el mismo lateral aparecen
+   * tambien las categorias con esos nombres: sin el prefijo, "Peliculas"
+   * seria a la vez una lista y una categoria y no se sabria que abre.
+   */
+  var SOURCES = [
+    { key: '',       name: 'Todos los paises' },
+    { key: 'es',     name: 'España' },
+    { key: 'lat',    name: 'Latino' },
+    { key: 'mx',     name: 'México' },
+    { key: 'uk',     name: 'UK' },
+    { key: 'us',     name: 'USA' },
+    { key: 'br',     name: 'Brasil' },
+    { key: 'ar',     name: 'Argentina' },
+    { key: 'movies', name: 'Solo Peliculas' },
+    { key: 'series', name: 'Solo Series' },
+    { key: 'kids',   name: 'Solo Infantil' },
+    { key: 'news',   name: 'Solo Noticias' },
+    { key: 'sports', name: 'Solo Deportes' }
+  ];
+
   /* ---------------------------------------------------------------- *
    * Estado
    * ---------------------------------------------------------------- */
@@ -63,7 +136,8 @@
     adapter: null,
     items: [],
     groups: [],            // [{ name, items: [...] }]
-    side: [],              // [{ type:'group', idx } | { type:'guide' } | { type:'search' }]
+    side: [],              // [{ type:'group'|'source'|'guide'|'search', ... }]
+    activeSource: '',      // clave de la lista cargada, para marcarla
     byId: {},
     onAir: {},
     epgItems: [],
@@ -104,6 +178,9 @@
     el.brand     = $('brand');
     el.search    = $('searchInput');
     el.toast     = $('toast');
+
+    // Que lista esta cargada ahora, para marcarla en el lateral.
+    state.activeSource = currentSourceKey();
 
     player = new Player(el.video, el.status);
     player.onError = function (m) { toast(m); };
@@ -149,6 +226,16 @@
     loadCatalog();
   }
 
+  /** Lee de la URL la lista activa de iptv-org ('' = indice completo). */
+  function currentSourceKey() {
+    try {
+      var m = /[?&]cc=([a-z0-9-]*)/i.exec(window.location.search || '');
+      return (m ? m[1] : ((CONFIG.iptvorg || {}).country || '')).toLowerCase();
+    } catch (e) {
+      return (CONFIG.iptvorg || {}).country || '';
+    }
+  }
+
   /**
    * CONFIG.brand.name personalize el logotipo. Mantiene el formato de la
    * marca de la app de referencia: primera palabra en blanco y grande,
@@ -180,7 +267,7 @@
         el.shelves.innerHTML =
           '<div class="epg-empty">No se encontro ninguna lista.<br>' +
           'Prueba otra fuente: <code>?src=iptvorg&amp;cc=gb</code>, ' +
-          '<code>?src=iptvorg&amp;cc=mx</code> o <code>?src=demo</code>.<br>' +
+          '<code>?cc=mx</code>, <code>?cc=uk</code> o <code>?cc=movies</code>.<br>' +
           'Revisa <code>CONFIG.iptvorg</code> en <code>js/config.js</code>.</div>';
         return;
       }
@@ -197,6 +284,11 @@
    * Agrupacion
    * ---------------------------------------------------------------- */
   function buildGroups() {
+    // El tema se fija antes de nada: al arrancar, la pantalla ya aparece
+    // con el color de la primera categoria en vez de arrancar neutra y
+    // cambiar despues.
+    applyTheme('all');
+
     if (state.query) {
       var hits = [];
       for (var i = 0; i < state.items.length; i++) {
@@ -215,29 +307,57 @@
       map[g].push(it);
     }
 
+    // Se traduce la categoria y se le asigna un tema antes de pintar nada:
+    // los nombres de iptv-org vienen en ingles ('Sports', 'News') y salen
+    // tal cual si no se pasan por aqui.
     var groups = [];
     for (var k = 0; k < order.length; k++) {
-      groups.push({ name: order[k], items: map[order[k]] });
+      var par = categoriaEs(order[k]);
+      groups.push({ name: par[0], theme: par[1], items: map[order[k]] });
     }
 
+    // Orden alfabetico: el lateral queda ordenado y es predecible.
+    groups.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+
     // "Todos" primero, y una estanteria deccion destacada arriba.
-    groups.unshift({ name: 'Todos los canales', items: state.items.slice() });
+    groups.unshift({ name: 'Todos los canales', theme: 'all', items: state.items.slice() });
 
     state.groups = groups;
     buildSide();
     buildHero();
   }
 
-  /** Lateral: una entrada por grupo, mas las accesos fijos de la aplicacion. */
+  /**
+   * Lateral: selector de origen arriba, una entrada por grupo y los accesos
+   * fijos al final.
+   *
+   * El selector no es un lujo: iptv-org publica 11262 canales repartidos en
+   * listas por pais, region y categoria, y sin un sitio visible para
+   * cambiar de lista solo se ve un countries/es.m3u con 324 canales y parece
+   * que faltan todos los demas.
+   */
   function buildSide() {
     var side = [];
+    side.push({ type: 'head', name: 'Listas' });
+    for (var s = 0; s < SOURCES.length; s++) {
+      side.push({ type: 'source', key: SOURCES[s].key,
+                  name: SOURCES[s].name, count: 0 });
+    }
+    side.push({ type: 'head', name: 'Canales' });
     for (var i = 0; i < state.groups.length; i++) {
       side.push({ type: 'group', idx: i, name: state.groups[i].name, count: state.groups[i].items.length });
     }
+    side.push({ type: 'head', name: 'Aplicacion' });
     side.push({ type: 'search', name: 'Explorar', count: 0 });
     side.push({ type: 'guide',  name: 'Guia de TV', count: 0 });
     state.side = side;
     if (state.cat >= side.length) state.cat = 0;
+  }
+
+  /** Cambia de lista recargando con la fuente elegida en la URL. */
+  function openSource(key) {
+    // Sin codigo = indice completo de iptv-org (11262 canales).
+    location.href = 'index.html' + (key ? '?cc=' + encodeURIComponent(key) : '');
   }
 
   /**
@@ -274,11 +394,21 @@
   }
 
   function renderCategories() {
-    var html = '<div class="sidehead">Navegacion</div>';
+    var html = '';
     for (var i = 0; i < state.side.length; i++) {
       var it = state.side[i];
-      html += '<button class="sideItem" data-cat="' + i + '" tabindex="0">' +
-              '<span class="si ' + iconFor(it.name) + '"></span>' +
+
+      // Los separadores separan: no se pintan como boton ni se pueden
+      // seleccionar con el D-pad, o el foco se quedaria clavado en ellos.
+      if (it.type === 'head') {
+        html += '<div class="sidehead">' + Utils.esc(it.name) + '</div>';
+        continue;
+      }
+
+      var icon = (it.type === 'source') ? 'list' : iconFor(it.name);
+      html += '<button class="sideItem' + (it.type === 'source' ? ' isSource' : '') +
+              '" data-cat="' + i + '" tabindex="0">' +
+              '<span class="si ' + icon + '"></span>' +
               '<span class="st">' + Utils.esc(it.name) + '</span>' +
               (it.count ? '<span class="sn">' + it.count + '</span>' : '') +
               '</button>';
@@ -287,9 +417,15 @@
 
     var nodes = el.cats.querySelectorAll('.sideItem');
     for (var j = 0; j < nodes.length; j++) {
-      (function (n, idx) {
-        n.addEventListener('click', function () { selectCategory(idx); });
-      })(nodes[j], j);
+      (function (n) {
+        n.addEventListener('click', function () {
+          // El indice sale del propio nodo, no de su posicion en el DOM:
+          // el lateral incluye separadores que no son .sideItem, asi que
+          // el numero de orden en la lista no coincide con j y el foco
+          // acababa en la entrada equivocada.
+          selectCategory(parseInt(n.getAttribute('data-cat'), 10));
+        });
+      })(nodes[j]);
     }
   }
 
@@ -479,12 +615,30 @@
 
     if (it.type === 'search') { render(); paintFocus(); openSearch(); return; }
     if (it.type === 'guide')  { render(); paintFocus(); showScreen('guide'); return; }
+    if (it.type === 'source') {
+      // Ya estamos en esa lista: no se recarga nada.
+      if (it.key === state.activeSource) { render(); paintFocus(); return; }
+      openSource(it.key);
+      return;
+    }
 
     state.shelf = it.idx;
     state.card = 0;
     state.zone = 'shelf';
+    applyTheme(state.groups[it.idx] && state.groups[it.idx].theme);
     render();
     revealCard();
+  }
+
+  /**
+   * Cambia el fondo de la pantalla segun la categoria elegida. El tema son
+   * unos pocos degradados en CSS: no hay imagenes que generar ni descargas,
+   * y el cambio de color se pinta al instante incluso en un motor viejo.
+   */
+  function applyTheme(theme) {
+    var app = document.body;
+    app.className = app.className.replace(/\btema-\S+/g, '').replace(/\s+/g, ' ').trim();
+    app.className += ' tema-' + (theme || 'other');
   }
 
   function openSearch() {
@@ -686,12 +840,27 @@
     });
   }
 
-  /** dc horizontal, dr vertical. Devuelve true si consumio la pulsacion. */
+  /**
+ * Siguiente entrada del lateral a la que se puede parar: se salta los
+ * separadores. Si se topa con un borde, se queda en el ultimo (o primero)
+ * elemento seleccionable en lugar de clavarse en una cabecera.
+ */
+function nextSelectable(from, dir) {
+  var i = from;
+  for (var intentos = 0; intentos < state.side.length + 1; intentos++) {
+    i += dir;
+    if (i < 0 || i >= state.side.length) return from;
+    if (state.side[i].type !== 'head') return i;
+  }
+  return from;
+}
+
+/** dc horizontal, dr vertical. Devuelve true si consumio la pulsacion. */
   function move(dc, dr) {
     /* ---- lateral ---- */
     if (state.zone === 'cat') {
       if (dr) {
-        state.cat = Math.max(0, Math.min(state.side.length - 1, state.cat + dr));
+        state.cat = nextSelectable(state.cat, dr);
         paintFocus();
       }
       if (dc > 0) { state.zone = 'hero'; paintFocus(); }
@@ -711,6 +880,7 @@
         var it = state.side[state.cat];
         state.shelf = (it && it.type === 'group') ? it.idx : state.shelf;
         state.card = 0;
+        applyTheme(state.groups[state.shelf] && state.groups[state.shelf].theme);
         renderShelves();
         revealCard();
       }
@@ -736,6 +906,7 @@
       else if (target < state.groups.length) {
         state.shelf = target;
         state.card = Math.min(state.card, Math.max(0, Math.min(state.groups[target].items.length, 40) - 1));
+        applyTheme(state.groups[target].theme);
         // Solo se repinta si la estanteria enfocada entra o sale de la ventana
         // de 9 filas que se pinta alrededor del foco.
         if (target < 4 || target >= state.groups.length - 5 || Math.abs(target - prev) > 4) {

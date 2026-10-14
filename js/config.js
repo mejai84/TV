@@ -32,38 +32,35 @@ function merge(base, extra) {
  * ------------------------------------------------------------------ */
 var CONFIG = {
   /**
-   * Fuente activa: 'demo' | 'json' | 'm3u' | 'iptvorg' | 'provider'
+   * Fuente activa: 'iptvorg' | 'provider'
    *
-   * Por defecto 'demo' porque funciona en cualquier sitio, incluido un
-   * despliegue estatico como Vercel: son tres streams que ya traen CORS y no
-   * pasan por el proxy. Las demas fuentes necesitan el proxy de serve.py,
-   * que no existe en un despliegue estatico: el catalogo se veria pero el
-   * video no.
-   *
-   * Se puede forzar desde la URL sin editar el fichero:
-   *   index.html?src=iptvorg
+   * iptv-org es la fuente real: sin listas de prueba. Antes existia una
+   * 'demo' con tres streams de ejemplo que era la que se abria por defecto,
+   * y hacia que en pantalla solo aparecieran 3 canales, muy lejos de los
+   * 11262 que publica iptv-org. Se ha eliminado.
    */
-  source: 'demo',
+  source: 'iptvorg',
 
   /**
    * Listas de iptv-org (https://github.com/iptv-org/iptv).
    *
    * El sitio publica playlists M3U por pais, idioma, categoria y region.
-   * Todas envian Access-Control-Allow-Origin: *, asi que se pueden leer
-   * directamente desde el navegador sin proxy.
+   * Todas envian Access-Control-Allow-Origin: *, asi que la lista se puede
+   * leer directamente del navegador sin proxy.
    *
-   * Opciones de 'country':
-   *   ''       -> index.m3u completo (unas 11200 cadenas, 2.5 MB)
-   *   'es'     -> countries/es.m3u (unas 200 cadenas, 80 KB)
-   *   'lat'    -> regions/lat.m3u
-   *   'uk'     -> languages/uk.m3u
-   *   'movies' -> categories/movies.m3u
+   * 'country' vacio = index.m3u completo (11262 canales, 2.5 MB), que es lo
+   * que se pide por defecto. Con un valor se carga solo esa lista:
+   *   'es'     -> countries/es.m3u (324 canales, 80 KB)
+   *   'uk'     -> countries/uk.m3u (300)
+   *   'movies' -> categories/movies.m3u (786)
    *
-   * Recomendado dejar un pais o una categoria en vez del completo: 2.5 MB
-   * de M3U tardan bastante en parsearse en el motor de un televisor viejo.
+   * Aviso sobre el indice completo: son 2.5 MB y 11262 canales. Parsearlo
+   * lleva su tiempo en el motor de un televisor viejo, y ademas muchos de
+   * esos canales llevan anos caidos. Las listas por pais o categoria cargan
+   * casi al instante y son mucho mas manejables con el D-pad.
    */
   iptvorg: {
-    country: 'es',
+    country: '',
     base: 'https://iptv-org.github.io/iptv'
   },
 
@@ -175,8 +172,8 @@ var Utils = {
       if (line.indexOf('#EXTINF') === 0) {
         flush(null);
         pending = { kind: 'live', id: null, title: '', poster: '', group: '', tvgId: '' };
-        var dur = line.indexOf(',');
-        if (dur > -1) pending.title = line.slice(dur + 1);
+        var dur = Utils.extinfComma(line);
+        if (dur > -1) pending.title = Utils.trim(line.slice(dur + 1));
         var idm = line.match(/tvg-id="([^"]*)"/);
         if (idm) pending.tvgId = idm[1];
         var logom = line.match(/tvg-logo="([^"]*)"/);
@@ -201,6 +198,27 @@ var Utils = {
   },
 
   trim: function (s) { return String(s).replace(/^\s+|\s+$/g, ''); },
+
+  /**
+   * Posicion de la coma que separa los atributos de #EXTINF del titulo.
+   *
+   * No puede ser la primera coma de la linea: iptv-org anade un atributo
+   * user-agent con el navegador entero, y ahi hay comas dentro, por ejemplo
+   * en "(KHTML, like Gecko)". Cortando por la primera, el titulo salia
+   * desde dentro del user-agent y en pantalla se leia
+   * " like Gecko) Chrome/149... group-title=...,1+1 International".
+   *
+   * Se recorre la linea saltando los tramos entrecomillados.
+   */
+  extinfComma: function (line) {
+    var dentro = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line.charAt(i);
+      if (c === '"') dentro = !dentro;
+      else if (c === ',' && !dentro) return i;
+    }
+    return -1;
+  },
 
   /**
    * Normaliza un nombre de canal para poder compararlo entre fuentes distintas.
@@ -634,14 +652,14 @@ ProviderAdapter.prototype.epg = function () {
 /* ------------------------------------------------------------------ *
  * Fabrica
  *
- * Un parametro en la URL manda sobre CONFIG.source, para probar otra fuente
- * sin editar ficheros ni tener que volver a desplegar:
- *   index.html?src=m3u
+ * Ya no hay listas de prueba: solo iptv-org y, si algun dia se conecta un
+ * portal con token, 'provider'. El parametro src= se conserva para poder
+ * forzar el portal sin editar ficheros ni volver a desplegar.
  * ------------------------------------------------------------------ */
 function activeSource() {
   try {
     var m = /[?&]src=([a-z]+)/i.exec(window.location.search || '');
-    if (m && ['demo', 'json', 'm3u', 'iptvorg', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
+    if (m && ['iptvorg', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
       return m[1].toLowerCase();
     }
   } catch (e) { /* file:// o sandbox sin location.search */ }
@@ -686,22 +704,18 @@ function iptvOrgUrls(key) {
 
 function buildAdapter(name) {
   switch (name) {
-    case 'm3u':
-      return new M3UAdapter({
-        urls: iptvOrgUrls((CONFIG.iptvorg || {}).country)
-      });
     case 'iptvorg':
+    default:
       // iptv-org: coleccion abierta de cadenas en abierto, actualizada a
-      // diario. Se puede probar otro pais sin editar ficheros:
-      //   index.html?src=iptvorg&cc=gb
-      var cc = (CONFIG.iptvorg || {}).country || 'es';
+      // diario. Sin cc= se carga el indice completo (11262 canales):
+      //   index.html            -> todos los paises
+      //   index.html?cc=es      -> solo Espana
+      var cc = (CONFIG.iptvorg || {}).country || '';
       try {
-        var m = /[?&]cc=([a-z0-9-]+)/i.exec(window.location.search || '');
+        var m = /[?&]cc=([a-z0-9-]*)/i.exec(window.location.search || '');
         if (m) cc = m[1].toLowerCase();
       } catch (e) { /* sin location.search */ }
       return new M3UAdapter({ urls: iptvOrgUrls(cc) });
-    case 'json':
-      return new JsonAdapter({ url: 'streams.json' });
     case 'provider':
       return new ProviderAdapter({
         base: 'https://TU-DOMINIO',   // <- cuando lo tengas
@@ -710,7 +724,5 @@ function buildAdapter(name) {
         userToken: '',
         lang: 'pt'
       });
-    default:
-      return new JsonAdapter({ url: 'streams.json' });
   }
 }

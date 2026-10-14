@@ -52,6 +52,122 @@ body.tv {
   background: var(--bg);
 }
 
+/* ---------------- Fondo por categoria ----------------
+   No hay imagenes: cada familia de contenido tiene su propio degradado.
+   Un fondo con imagen habria que descargarlo (o generarlo), y en un
+   televisor eso son megas que ralentizan el arranque; esto son unos KiB de
+   CSS que se pintan al instante en cualquier motor.
+
+   Se aplican sobre body con la clase .tema-<familia>, que app.js cambia
+   al elegir categoria. Todos los tonos son frios: azules,Indices y
+   verdes apagados, del mismo azul de marca a otro, sin salirse de la gama. */
+body.tema-all {
+  background-color: #070c14;
+  background-image:
+    radial-gradient(1200px 600px at 18% -10%, rgba(74,163,255,.20), transparent 60%),
+    linear-gradient(180deg, #070c14 0%, #05080e 100%);
+}
+body.tema-sports {
+  background-color: #060f14;
+  background-image:
+    radial-gradient(1100px 560px at 20% -12%, rgba(45,212,191,.22), transparent 62%),
+    linear-gradient(180deg, #071018 0%, #050a10 100%);
+}
+body.tema-movies {
+  background-color: #080b18;
+  background-image:
+    radial-gradient(1100px 560px at 18% -12%, rgba(99,102,241,.26), transparent 62%),
+    linear-gradient(180deg, #090c1a 0%, #06070f 100%);
+}
+body.tema-series {
+  background-color: #0a0a18;
+  background-image:
+    radial-gradient(1050px 540px at 22% -12%, rgba(129,140,248,.24), transparent 62%),
+    linear-gradient(180deg, #0b0b1a 0%, #07070f 100%);
+}
+body.tema-kids {
+  background-color: #06121a;
+  background-image:
+    radial-gradient(1000px 520px at 24% -12%, rgba(56,189,248,.26), transparent 62%),
+    linear-gradient(180deg, #08141d 0%, #050b10 100%);
+}
+body.tema-news {
+  background-color: #08101a;
+  background-image:
+    radial-gradient(1050px 520px at 20% -12%, rgba(100,149,237,.24), transparent 62%),
+    linear-gradient(180deg, #09121c 0%, #060a11 100%);
+}
+body.tema-docs {
+  background-color: #071114;
+  background-image:
+    radial-gradient(1000px 520px at 22% -12%, rgba(77,208,225,.22), transparent 62%),
+    linear-gradient(180deg, #081317 0%, #050b0d 100%);
+}
+body.tema-music {
+  background-color: #0d0a18;
+  background-image:
+    radial-gradient(1050px 540px at 20% -12%, rgba(147,112,219,.24), transparent 62%),
+    linear-gradient(180deg, #0f0b1c 0%, #08060f 100%);
+}
+body.tema-entertainment {
+  background-color: #0c0a16;
+  background-image:
+    radial-gradient(1050px 540px at 22% -12%, rgba(139,124,246,.24), transparent 62%),
+    linear-gradient(180deg, #0e0b18 0%, #070610 100%);
+}
+body.tema-faith {
+  background-color: #0b0d12;
+  background-image:
+    radial-gradient(1000px 520px at 24% -12%, rgba(148,163,184,.22), transparent 62%),
+    linear-gradient(180deg, #0c0e14 0%, #07080c 100%);
+}
+body.tema-culture {
+  background-color: #0a0e16;
+  background-image:
+    radial-gradient(1000px 520px at 22% -12%, rgba(125,178,232,.22), transparent 62%),
+    linear-gradient(180deg, #0b1018 0%, #060a0e 100%);
+}
+body.tema-lifestyle {
+  background-color: #0a0d14;
+  background-image:
+    radial-gradient(1000px 520px at 24% -12%, rgba(148,178,214,.20), transparent 62%),
+    linear-gradient(180deg, #0b0e16 0%, #07080d 100%);
+}
+body.tema-family {
+  background-color: #0d0b14;
+  background-image:
+    radial-gradient(1000px 520px at 22% -12%, rgba(167,189,237,.22), transparent 62%),
+    linear-gradient(180deg, #0e0c16 0%, #08070e 100%);
+}
+body.tema-business {
+  background-color: #081019;
+  background-image:
+    radial-gradient(1000px 520px at 24% -12%, rgba(96,165,250,.22), transparent 62%),
+    linear-gradient(180deg, #09121c 0%, #050a10 100%);
+}
+body.tema-education {
+  background-color: #081218;
+  background-image:
+    radial-gradient(1000px 520px at 22% -12%, rgba(103,178,214,.22), transparent 62%),
+    linear-gradient(180deg, #09141b 0%, #050a0d 100%);
+}
+body.tema-public {
+  background-color: #091014;
+  background-image:
+    radial-gradient(1000px 520px at 24% -12%, rgba(125,196,214,.20), transparent 62%),
+    linear-gradient(180deg, #0a1217 0%, #060a0d 100%);
+}
+body.tema-other {
+  background-color: #080a0e;
+  background-image:
+    radial-gradient(1100px 560px at 20% -12%, rgba(90,110,140,.20), transparent 62%),
+    linear-gradient(180deg, #090b10 0%, #06070a 100%);
+}
+
+/* El lateral y las superficies se tiñen un punto con la familia, para que
+   el cambio se note tambien en las areas donde el fondo apenas se ve. */
+body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
+
 /* ---------------- Barra superior ----------------
    Ningun contenedor de este fichero usa flex "gap": VIDAA antigua corre
    sobre Chromium anterior al 84, donde la propiedad no existe y los
@@ -197,8 +313,6 @@ body.tv {
   border-right: 1px solid var(--line);
 }
 .sidebar::-webkit-scrollbar { display: none; }
-
-.sidehead { display: none; }
 
 .sideItem {
   display: block;
@@ -357,6 +471,28 @@ body.tv {
   width: 9px; height: 2px; background: currentColor;
   transform: rotate(45deg); transform-origin: left center;
 }
+
+/* lista: pila de rayas, para distinguir una lista de un canal */
+.si.list::before {
+  content: ""; position: absolute; left: 2px; top: 2px;
+  width: 22px; height: 18px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.list::after {
+  content: ""; position: absolute; left: 6px; top: 7px;
+  width: 14px; height: 2px; background: currentColor;
+  box-shadow: 0 4px 0 0 currentColor, 0 8px 0 0 currentColor;
+}
+
+/* Separadores de seccion del lateral */
+.sidehead {
+  display: block;
+  padding: 14px 6px 6px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.8px; text-transform: uppercase;
+  color: #64768c;
+}
+.sideItem.isSource .st { color: #cfe0f5; }
 .sideItem .st {
   display: block; margin-top: 6px;
   font-size: 11.5px; font-weight: 500; line-height: 1.3;
