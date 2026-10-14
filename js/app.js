@@ -195,6 +195,10 @@
     // Que lista esta cargada ahora, para marcarla en el lateral.
     state.activeSource = currentSourceKey();
 
+    // Idioma de la UI: ES (español), EN (inglés), PT (portugués)
+    state.lang = localStorage.getItem('tv_lang') || 'es';
+    updateLangUI();
+
     player = new Player(el.video, el.status);
     player.onError = function (m) { toast(m); };
     player.onLevels = function (l) { renderQuality(l); };
@@ -215,25 +219,53 @@
     bindTabs();
     startClock();
 
-    // Resultados en vivo: se recalcula al escribir, sin pulsar Enter. Con el
-    // indice ya construido, escribir una letra sobre 11262 canales es
-    // instantaneo.
+    // Resultados en vivo: busqueda incremental con debounce de 300ms.
+    // Evita que el motor se dispare en cada tecla en televisores lentos.
+    var searchTimeout = null;
     el.search.addEventListener('input', function () {
-      state.query = Utils.trim(el.search.value);
-      state.zone = 'shelf';
-      state.card = 0;
-      buildGroups();
-      updateSearchUi();
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(function () {
+        state.query = Utils.trim(el.search.value);
+        state.zone = 'shelf';
+        state.card = 0;
+        buildGroups();
+        updateSearchUi();
+      }, 300);
     });
 
     el.search.addEventListener('keydown', function (e) {
       if (e.keyCode === 13 || e.keyCode === 27) el.search.blur();
     });
 
-    $('btnSearch').addEventListener('click', function () { openSearch(); });
-    $('btnGuide').addEventListener('click', function () { showScreen('guide'); });
+    var btnSearch = $('btnSearch');
+    if (btnSearch) btnSearch.addEventListener('click', function () { openSearch(); });
+    var btnGuide = $('btnGuide');
+    if (btnGuide) btnGuide.addEventListener('click', function () { showScreen('guide'); });
     $('btnStop').addEventListener('click', function () { stopPlayback(); });
     $('btnBack').addEventListener('click', function () { goBackToList(); });
+
+    // selector de idioma en la banda
+    el.langBtn.addEventListener('click', function () {
+      // ciclo: ES -> EN -> PT -> ES
+      if (state.lang === 'es') state.lang = 'en';
+      else if (state.lang === 'en') state.lang = 'pt';
+      else state.lang = 'es';
+      localStorage.setItem('tv_lang', state.lang);
+      updateLangUI();
+    });
+
+    // Picture in Picture
+    el.btnPiP.addEventListener('click', function () {
+      var video = el.video;
+      if (document.pictureInPictureElement === video) {
+        document.exitPictureInPicture();
+      } else {
+        video.requestPictureInPicture().catch(function (error) {
+          toast('No se pudo activar PiP: ' + error.message);
+        });
+      }
+    });
+
     bindSwipe();
 
     applyBrand();
@@ -499,12 +531,12 @@
 
   function renderHero() {
     if (!state.hero.length) {
-      el.hero.innerHTML = '<div class="heroEmpty">Sin destacados todavia. ' +
+      el.hero.innerHTML = '<div class="cardelaEmpty">Sin destacados todavia. ' +
         'Revisa <code>CONFIG.source</code> en <code>js/config.js</code>.</div>';
       return;
     }
 
-    var html = '<div class="heroTrack" id="heroTrack">';
+    var html = '<div class="cardelaTrack" id="heroTrack">';
     for (var i = 0; i < state.hero.length; i++) {
       var h = state.hero[i];
       var it = h.item;
@@ -531,7 +563,7 @@
     }
     html += '</div>' +
             '<div class="edge l"></div><div class="edge r"></div>' +
-            '<div class="heroDots" id="heroDots">';
+            '<div class="cardelaDots" id="heroDots">';
     for (var d = 0; d < state.hero.length; d++) {
       html += '<i data-dot="' + d + '"></i>';
     }
@@ -552,7 +584,7 @@
       })(slides[s]);
     }
 
-    var dots = el.hero.querySelectorAll('.heroDots i');
+    var dots = el.hero.querySelectorAll('.cardelaDots i');
     for (var q = 0; q < dots.length; q++) {
       (function (n) {
         n.addEventListener('click', function (e) {
@@ -576,7 +608,7 @@
     }
     if (slides[state.heroAt]) slides[state.heroAt].className += ' active';
 
-    var dots = el.hero.querySelectorAll('.heroDots i');
+    var dots = el.hero.querySelectorAll('.cardelaDots i');
     for (var j = 0; j < dots.length; j++) {
       dots[j].className = (j === state.heroAt) ? 'on' : '';
     }
@@ -630,6 +662,9 @@
 
     var html = '<button class="chipFilter' + (state.filtro ? '' : ' on') +
                '" data-f="" tabindex="0">Todas</button>';
+    // Chip "En vivo": solo canales que emiten ahora
+    html += '<button class="chipFilter' + (state.onlyLive ? ' on' : '') +
+              '" data-f="en-vivo" tabindex="0">En vivo</button>';
     for (i = 0; i < cats.length; i++) {
       html += '<button class="chipFilter' + (state.filtro === cats[i] ? ' on' : '') +
               '" data-f="' + Utils.esc(cats[i]) + '" tabindex="0">' +
@@ -641,7 +676,17 @@
     for (var j = 0; j < chips.length; j++) {
       (function (n) {
         n.addEventListener('click', function () {
-          state.filtro = n.getAttribute('data-f');
+          var f = n.getAttribute('data-f');
+          // Chip "En vivo": alterna solo canales en emision
+          if (f === 'en-vivo') {
+            state.onlyLive = !state.onlyLive;
+            state.card = 0;
+            buildGroups();
+            updateSearchUi();
+            renderFilters();
+            return;
+          }
+          state.filtro = f;
           state.card = 0;
           buildGroups();
           updateSearchUi();
@@ -652,14 +697,37 @@
   }
 
   function updateSearchUi() {
+    // El panel queda siempre a la vista: con 11262 canales el buscador es
+    // la navegacion principal, no algo escondido. Solo el contador depende
+    // de si se esta buscando.
+    el.panel.className = 'searchPanel on';
     var buscando = !!(state.query || state.filtro);
-    el.panel.className = buscando ? 'searchPanel on' : 'searchPanel';
 
     if (!buscando) { el.count.textContent = ''; return; }
 
     var n = state.groups.length ? state.groups[0].items.length : 0;
     el.count.textContent = n + (n === 1 ? ' canal' : ' canales') +
       ' de ' + state.items.length;
+  }
+
+  function updateLangUI() {
+    // actualiza el botón de idioma en la banda
+    var langBtn = $('langSelect');
+    if (!langBtn) return;
+
+    // actualiza el texto del botón
+    var langLabels = { es: 'ES', en: 'EN', pt: 'PT' };
+    langBtn.textContent = langLabels[state.lang] || 'ES';
+
+    // actualiza el texto "En directo" en el tally
+    var tallyText = $('tallyText');
+    if (tallyText) {
+      var labels = { es: 'En directo', en: 'Live', pt: 'Ao vivo' };
+      tallyText.textContent = labels[state.lang] || 'En directo';
+    }
+
+    // guarda la preferencia
+    localStorage.setItem('tv_lang', state.lang);
   }
 
   function renderShelves() {
@@ -695,6 +763,8 @@
       for (var i = 0; i < limit; i++) {
         var it = g.items[i];
         var live = state.onAir[it.id] || state.onAir[it.tvgId];
+        // Si soloLive está activo, saltar canales que no emiten ahora
+        if (state.onlyLive && !live) continue;
         var focused = (s === state.shelf && i === state.card);
 
         html += '<div class="card' + (focused ? ' focused' : '') +
@@ -765,6 +835,8 @@
   }
 
   function openSearch() {
+    // El panel siempre esta visible; aqui solo se le da el foco al campo.
+    el.panel.className = 'searchPanel on';
     el.search.className = 'search open';
     el.search.focus();
     // En televisor se teclea con el mando (hay que abrir el teclado en
@@ -781,7 +853,8 @@
   function closeSearch() {
     el.search.className = 'search';
     el.search.blur();
-  }
+    // El panel se queda visible; solo se vacia el contador si no se busca.
+    if (!state.query && !state.filtro) el.count.textContent = '';
 
   /* ---------------------------------------------------------------- *
    * Foco
@@ -916,7 +989,8 @@
 
   function showScreen(name) {
     state.screen = name;
-    el.catalogUI.style.display = (name === 'catalog') ? 'block' : 'none';
+    // catalogScreen es flex por CSS; dejarlo en block rompia el .layout.
+    el.catalogUI.style.display = (name === 'catalog') ? 'flex' : 'none';
     // En movil el contenedor es un bloque que se desplaza; si se deja en
     // block, Safari y WebKit de Android lo comentan al cambiar de pantalla
     // y al volver el contenido aparece en blanco.

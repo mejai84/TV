@@ -1,772 +1,394 @@
 /* ============================================================
-   Cliente de television — tema para 1280x720
+   Cliente de television — sala de control
    ============================================================
-   Estructura pensada para televisor:
-     · barra superior con pestañas, búsqueda y reloj
-     · columna lateral con icono + categoria   (ColumnListAty)
-     · carrusel grande de destacados            (ShelveData / banner)
-     · filas horizontales de caratulas
-     · foco muy visible para D-pad
+   El catalogo se trata como un mosaico de monitores, no como una rejilla
+   de tarjetas: se separa con filos de 1 px, no con sombras difusas ni con
+   una misma esquina en todo. El unico color calido es el rojo de la luz de
+   tally, que marca lo que esta sonando.
 
-   Sin frameworks ni CSS Grid: los navegadores de TV de 2015-2018
-   no lo soportan. Solo flexbox y posicion absoluta.
+   Motores de television antiguos (VIDAA corre sobre Chromium previo al 84):
+     · no hay "gap" de flexbox, el espaciado va con margenes
+     · las variables CSS pueden no existir, cada una lleva delante su
+       equivalente literal
+     · nada de CSS Grid
    ============================================================ */
 
 :root {
-  /* Paleta fria: azules profundos de fondo, azul claro de acento, grises
-     para el texto y un rojo reservado a "en vivo" y a los errores. */
-  --bg:        #070c14;
-  --bg2:       #0c1420;
-  --panel:     #0f1927;
-  --panel2:    #16233a;
-  --line:      #1d2c42;
-  --line2:     #27384f;
-  --text:      #e8eef8;
-  --dim:       #94a6bd;
-  --dim2:      #64768c;
-  --accent:    #4aa3ff;
-  --accent2:   #8fd0ff;
-  --accentPre: #2b6fc4;
-  --live:      #e5484d;
-  --success:   #35c98a;
-  --radius:    8px;
+  --void:  #060b14;
+  --deck:  #0c1626;
+  --deck2: #142338;
+  --rule:  #1e3050;
+  --ice:   #5db4ff;
+  --iceD:  #2f7fd0;
+  --signal:#ff4d5e;
+  --paper: #eaf2ff;
+  --muted: #8ba0bd;
+  --hair:  1px;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0; padding: 0; height: 100%;
-  color: #ffffff;  /* respaldo sin var() */
-  color: var(--text);
-  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #eaf2ff;  /* respaldo sin var() */
+  color: var(--paper);
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
   cursor: default;
 }
 
-/* Fondo negro plano como la app de referencia: alli no hay halo de color,
-   solo superficies #070c14 contra caratulas y barras. */
-body.tv {
-  background: #070c14;
-  background: var(--bg);
-}
+body.tv { background: #060b14; background: var(--void); }
 
-/* ---------------- Fondo por categoria ----------------
-   No hay imagenes: cada familia de contenido tiene su propio degradado.
-   Un fondo con imagen habria que descargarlo (o generarlo), y en un
-   televisor eso son megas que ralentizan el arranque; esto son unos KiB de
-   CSS que se pintan al instante en cualquier motor.
+/* ---------------- Fondo por familia ----------------
+   Solo cambia de tono: la familia de contenido es lo unico que cambia de
+   color en toda la app, y lo hace despues, no mientras se navega. */
+body.tema-all          { background-color: #060b14; background-image: radial-gradient(1100px 560px at 18% -12%, rgba(93,180,255,.16), transparent 62%); }
+body.tema-sports       { background-color: #04100f; background-image: radial-gradient(1100px 560px at 18% -12%, rgba(45,212,191,.18), transparent 62%); }
+body.tema-movies       { background-color: #070a18; background-image: radial-gradient(1100px 560px at 18% -12%, rgba(99,102,241,.20), transparent 62%); }
+body.tema-series       { background-color: #090a18; background-image: radial-gradient(1100px 560px at 18% -12%, rgba(129,140,248,.18), transparent 62%); }
+body.tema-kids         { background-color: #04121a; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(56,189,248,.20), transparent 62%); }
+body.tema-news         { background-color: #070f1a; background-image: radial-gradient(1100px 540px at 18% -12%, rgba(100,149,237,.18), transparent 62%); }
+body.tema-docs         { background-color: #041114; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(77,208,225,.18), transparent 62%); }
+body.tema-music        { background-color: #0c0918; background-image: radial-gradient(1100px 540px at 18% -12%, rgba(147,112,219,.20), transparent 62%); }
+body.tema-entertainment{ background-color: #0b0916; background-image: radial-gradient(1100px 540px at 18% -12%, rgba(139,124,246,.18), transparent 62%); }
+body.tema-faith        { background-color: #0a0c11; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(148,163,184,.16), transparent 62%); }
+body.tema-culture      { background-color: #090d16; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(125,178,232,.16), transparent 62%); }
+body.tema-lifestyle    { background-color: #090c14; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(148,178,214,.16), transparent 62%); }
+body.tema-family       { background-color: #0c0a14; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(167,189,237,.18), transparent 62%); }
+body.tema-business     { background-color: #070f18; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(96,165,250,.18), transparent 62%); }
+body.tema-education    { background-color: #061117; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(103,178,214,.18), transparent 62%); }
+body.tema-public       { background-color: #080f13; background-image: radial-gradient(1000px 520px at 22% -12%, rgba(125,196,214,.16), transparent 62%); }
+body.tema-other        { background-color: #070a0e; background-image: radial-gradient(1100px 560px at 18% -12%, rgba(90,110,140,.16), transparent 62%); }
 
-   Se aplican sobre body con la clase .tema-<familia>, que app.js cambia
-   al elegir categoria. Todos los tonos son frios: azules,Indices y
-   verdes apagados, del mismo azul de marca a otro, sin salirse de la gama. */
-body.tema-all {
-  background-color: #070c14;
-  background-image:
-    radial-gradient(1200px 600px at 18% -10%, rgba(74,163,255,.20), transparent 60%),
-    linear-gradient(180deg, #070c14 0%, #05080e 100%);
-}
-body.tema-sports {
-  background-color: #060f14;
-  background-image:
-    radial-gradient(1100px 560px at 20% -12%, rgba(45,212,191,.22), transparent 62%),
-    linear-gradient(180deg, #071018 0%, #050a10 100%);
-}
-body.tema-movies {
-  background-color: #080b18;
-  background-image:
-    radial-gradient(1100px 560px at 18% -12%, rgba(99,102,241,.26), transparent 62%),
-    linear-gradient(180deg, #090c1a 0%, #06070f 100%);
-}
-body.tema-series {
-  background-color: #0a0a18;
-  background-image:
-    radial-gradient(1050px 540px at 22% -12%, rgba(129,140,248,.24), transparent 62%),
-    linear-gradient(180deg, #0b0b1a 0%, #07070f 100%);
-}
-body.tema-kids {
-  background-color: #06121a;
-  background-image:
-    radial-gradient(1000px 520px at 24% -12%, rgba(56,189,248,.26), transparent 62%),
-    linear-gradient(180deg, #08141d 0%, #050b10 100%);
-}
-body.tema-news {
-  background-color: #08101a;
-  background-image:
-    radial-gradient(1050px 520px at 20% -12%, rgba(100,149,237,.24), transparent 62%),
-    linear-gradient(180deg, #09121c 0%, #060a11 100%);
-}
-body.tema-docs {
-  background-color: #071114;
-  background-image:
-    radial-gradient(1000px 520px at 22% -12%, rgba(77,208,225,.22), transparent 62%),
-    linear-gradient(180deg, #081317 0%, #050b0d 100%);
-}
-body.tema-music {
-  background-color: #0d0a18;
-  background-image:
-    radial-gradient(1050px 540px at 20% -12%, rgba(147,112,219,.24), transparent 62%),
-    linear-gradient(180deg, #0f0b1c 0%, #08060f 100%);
-}
-body.tema-entertainment {
-  background-color: #0c0a16;
-  background-image:
-    radial-gradient(1050px 540px at 22% -12%, rgba(139,124,246,.24), transparent 62%),
-    linear-gradient(180deg, #0e0b18 0%, #070610 100%);
-}
-body.tema-faith {
-  background-color: #0b0d12;
-  background-image:
-    radial-gradient(1000px 520px at 24% -12%, rgba(148,163,184,.22), transparent 62%),
-    linear-gradient(180deg, #0c0e14 0%, #07080c 100%);
-}
-body.tema-culture {
-  background-color: #0a0e16;
-  background-image:
-    radial-gradient(1000px 520px at 22% -12%, rgba(125,178,232,.22), transparent 62%),
-    linear-gradient(180deg, #0b1018 0%, #060a0e 100%);
-}
-body.tema-lifestyle {
-  background-color: #0a0d14;
-  background-image:
-    radial-gradient(1000px 520px at 24% -12%, rgba(148,178,214,.20), transparent 62%),
-    linear-gradient(180deg, #0b0e16 0%, #07080d 100%);
-}
-body.tema-family {
-  background-color: #0d0b14;
-  background-image:
-    radial-gradient(1000px 520px at 22% -12%, rgba(167,189,237,.22), transparent 62%),
-    linear-gradient(180deg, #0e0c16 0%, #08070e 100%);
-}
-body.tema-business {
-  background-color: #081019;
-  background-image:
-    radial-gradient(1000px 520px at 24% -12%, rgba(96,165,250,.22), transparent 62%),
-    linear-gradient(180deg, #09121c 0%, #050a10 100%);
-}
-body.tema-education {
-  background-color: #081218;
-  background-image:
-    radial-gradient(1000px 520px at 22% -12%, rgba(103,178,214,.22), transparent 62%),
-    linear-gradient(180deg, #09141b 0%, #050a0d 100%);
-}
-body.tema-public {
-  background-color: #091014;
-  background-image:
-    radial-gradient(1000px 520px at 24% -12%, rgba(125,196,214,.20), transparent 62%),
-    linear-gradient(180deg, #0a1217 0%, #060a0d 100%);
-}
-body.tema-other {
-  background-color: #080a0e;
-  background-image:
-    radial-gradient(1100px 560px at 20% -12%, rgba(90,110,140,.20), transparent 62%),
-    linear-gradient(180deg, #090b10 0%, #06070a 100%);
-}
-
-/* El lateral y las superficies se tiñen un punto con la familia, para que
-   el cambio se note tambien en las areas donde el fondo apenas se ve. */
-body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
-
-/* ---------------- Barra superior ----------------
-   Ningun contenedor de este fichero usa flex "gap": VIDAA antigua corre
-   sobre Chromium anterior al 84, donde la propiedad no existe y los
-   elementos se pegan. El espaciado va con margenes, que si se ven. */
-.topbar {
-  position: relative;
-  display: flex; align-items: center;
-  height: 74px;
-  padding: 0 34px 0 26px;
-}
-.topbar > * + * { margin-left: 26px; }
-
-.topbar::after {                       /* filete inferior */
-  content: "";
-  position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: #1d2c42;
-  background: var(--line);
-}
-
-/* Logotipo opcional: sin CONFIG.brand.name no se pinta nada */
-.brand {
-  display: flex; flex-direction: column; align-items: center;
-  white-space: nowrap;
-}
-.brandMark {
-  display: block;
-  font-size: 21px; font-weight: 900; letter-spacing: 4px;
-  line-height: 1;
-  color: #ffffff;
-}
-.brandText {
-  font-size: 11px; font-weight: 500; letter-spacing: 4px;
-  line-height: 1.4;
-  color: #4aa3ff;
-  color: var(--accent);
-}
-.brandText em { display: none; }
-
-.topnav { display: flex; margin-left: 14px; }
-.topnav button + button { margin-left: 6px; }
-
-.topnav button {
-  padding: 8px 18px;
-  font-size: 14px; font-weight: 600; letter-spacing: .4px;
-  color: #94a6bd;  /* respaldo sin var() */
-  color: var(--dim);
-  background: transparent;
-  border: 0; border-radius: 6px;
-  cursor: pointer;
-  transition: color .15s, background .15s;
-}
-.topnav button.active,
-.topnav button:focus {
-  color: #ffffff; outline: none;
-  background: #16233a;
-  background: var(--panel2);
-}
-
-.topright { display: flex; align-items: center; margin-left: auto; }
-.topright > * + * { margin-left: 18px; }
-
-.icoBtn {
-  width: 38px; height: 38px;
-  font-size: 19px; line-height: 1; color: #94a6bd;  /* respaldo sin var() */
-  font-size: 19px; line-height: 1; color: var(--dim);
-  background: transparent;
-  border: 1px solid #1d2c42; border-radius: 8px;  /* respaldo sin var() */
-  border: 1px solid var(--line); border-radius: 8px;
-  cursor: pointer;
-}
-.icoBtn:hover { color: #fff; border-color: #27384f; }
-.icoBtn:focus {
-  color: #ffffff; outline: none;
-  background: #4aa3ff;
-  background: var(--accent);
-  border-color: #4aa3ff;
-}
-
-.statusIcons { display: flex; align-items: center; }
-.statusIcons .dot + .lbl { margin-left: 7px; }
-.statusIcons .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #35c98a;
-  background: var(--success);
-}
-.statusIcons .dot.off { background: #64768c; }
-.statusIcons .lbl {
-  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #94a6bd;  /* respaldo sin var() */
-  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: var(--dim);
-}
-
-.clock {
-  font-size: 22px; font-weight: 500; letter-spacing: .5px; color: #ffffff;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.clock small {
-  display: block; margin-top: -2px;
-  font-size: 10px; font-weight: 500; letter-spacing: 1.4px; color: #64768c;  /* respaldo sin var() */
-  font-size: 10px; font-weight: 500; letter-spacing: 1.4px; color: var(--dim2);
-  text-align: right;
-}
-
-/* ---------------- Buscador ----------------
-   Es un panel fijo bajo la cabecera, no un campo flotante: necesita sitio
-   para los filtros de categoria y para el contador de resultados. */
-.searchPanel {
-  display: none;
-  position: absolute; top: 74px; left: 0; right: 0; z-index: 45;
-  padding: 14px 34px 16px;
-  background: rgba(8,13,20,.97);
-  border-bottom: 1px solid #1d2c42;
-}
-.searchPanel.on { display: block; }
-
-.searchRow { display: flex; align-items: center; }
-.searchRow > .search { flex: 1 1 auto; }
-
-.search {
-  height: 42px; padding: 0 14px;
-  font-size: 15px; color: #ffffff;  /* respaldo sin var() */
-  font-size: 15px; color: var(--text);
-  background: #16233a;
-  background: var(--panel2);
-  border: 1px solid #27384f; border-radius: 8px;  /* respaldo sin var() */
-  border: 1px solid var(--line2); border-radius: 8px;
-  outline: none;
-  min-width: 0;
-}
-.search:focus { border-color: #4aa3ff; }
-.search::placeholder { color: #64768c; }
-
-.searchCount {
-  flex: 0 0 auto; margin-left: 14px;
-  font-size: 13px; font-weight: 600; color: #8fd0ff;
-  white-space: nowrap;
-}
-
-/* Filtros por categoria */
-.filters {
-  margin-top: 12px;
-  max-height: 92px; overflow-y: auto;
-  scrollbar-width: none;
-}
-.filters::-webkit-scrollbar { display: none; }
-.chipFilter {
-  display: inline-block; margin: 0 8px 8px 0;
-  padding: 7px 14px;
-  font-size: 13px; font-weight: 600; color: #b6c6dc;
-  background: #101a28;
-  border: 1px solid #1d2c42; border-radius: 999px;
-  cursor: pointer;
-}
-.chipFilter:hover { color: #fff; border-color: #2b405c; }
-.chipFilter.on {
-  color: #04121d;
-  background: #4aa3ff;
-  border-color: #8fd0ff;
-}
-
-/* Aviso de que la estanteria se esta ampliando al avanzar */
-.moreHint {
-  display: block; margin-bottom: 6px;
-  font-size: 11px; color: #64768c;
-}
-
-/* Botones del reproductor */
-.playerActions { margin-top: 14px; }
-.pbtn {
-  display: inline-block; margin-right: 10px; padding: 9px 18px;
-  font-size: 14px; font-weight: 600; color: #ffffff;
-  background: #1d2c42;
-  border: 1px solid #2b405c; border-radius: 6px;
-  cursor: pointer;
-}
-.pbtn:hover { background: #27384f; }
-.pbtn:focus {
-  color: #04121d; outline: none;
-  background: #4aa3ff;
-  border-color: #8fd0ff;
-}
-.pbtn.danger { border-color: #7a2b32; color: #ffb3b8; }
-.pbtn.danger:focus { color: #ffffff; background: #c5303f; border-color: #ff8089; }
-
-.stoppedMsg {
-  margin-top: 14px; padding: 12px 16px;
-  font-size: 14px; color: #b6c6dc;
-  background: #101a28;
-  border: 1px solid #1d2c42; border-radius: 8px;
-}
-.stoppedMsg b { display: block; color: #ffb3b8; margin-bottom: 4px; }
-
-/* ---------------- Cuerpo: lateral + contenido ---------------- */
-/* La pantalla es una columna de altura completa: cabecera fija arriba y
-   .layout ocupa el resto. Sin esto, el calc(100% - 74px) de .layout se
-   resuelve contra una seccion sin altura y crece con el contenido, que
-   en tableta deja la ultima estanteria fuera de la ventana. */
+/* ---------------- Pantalla ---------------- */
 #catalogScreen {
   display: flex; flex-direction: column;
   height: 100%;
 }
 .layout { display: flex; flex: 1 1 auto; min-height: 0; }
 
-/* Lateral: en la referencia son 140 dp con el icono encima de la etiqueta
-   y todo centrado (HomeActivity.kt NavSidebar). Aqui se mantiene la
-   estructura de lista para el D-pad, pero con la misma composicion. */
-.sidebar {
-  flex: 0 0 168px; width: 168px;
-  padding: 24px 8px 18px;
-  overflow-y: auto;
-  scrollbar-width: none;
-  background: #0f1927;
-  background: var(--panel);
-  border-right: 1px solid #1d2c42;
-  border-right: 1px solid var(--line);
+/* ---------------- Banda de emision ---------------- */
+.band {
+  position: relative;
+  display: flex; align-items: center;
+  height: 62px;
+  padding: 0 22px;
+  background: #0c1626;
+  background: var(--deck);
+  border-bottom: 1px solid #1e3050;
+  border-bottom: 1px solid var(--rule);
 }
-.sidebar::-webkit-scrollbar { display: none; }
+.band > * + * { margin-left: 20px; }
+
+/* Luz de tally: el unico elemento que late solo en toda la aplicacion. */
+.tally {
+  display: flex; align-items: center;
+  padding: 7px 14px 7px 11px;
+  background: transparent;
+  border: 1px solid #1e3050;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.tally .lamp {
+  width: 9px; height: 9px; margin-right: 9px;
+  background: #ff4d5e;
+  background: var(--signal);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255,77,94,.8);
+  animation: latido 2.4s ease-in-out infinite;
+}
+@keyframes latido {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .28; }
+}
+.tallyText { font-size: 12.5px; font-weight: 600; color: #eaf2ff; }
+.tally:hover { border-color: #5db4ff; }
+.tally:focus { outline: 2px solid #5db4ff; outline-offset: 1px; }
+
+.onAir { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.onAirList {
+  display: block;
+  font-size: 13px; color: #8ba0bd;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.onAirList .sonando { color: #eaf2ff; font-weight: 600; }
+
+.bandRight { display: flex; align-items: center; }
+.bandRight > * + * { margin-left: 16px; }
+.tools { display: flex; }
+.tools > * + * { margin-left: 8px; }
+.icon {
+  width: 34px; height: 34px;
+  font-size: 17px; line-height: 1; color: #8ba0bd;
+  background: transparent;
+  border: 1px solid #1e3050;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.icon:hover { color: #eaf2ff; }
+.icon:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }
+
+.clock {
+  font-size: 19px; font-weight: 500; letter-spacing: .4px;
+  color: #eaf2ff;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.clock small {
+  display: block; margin-top: -3px;
+  font-size: 10px; font-weight: 400; letter-spacing: 1px; color: #8ba0bd;
+  text-align: right;
+}
+
+/* ---------------- Buscador ---------------- */
+.searchPanel {
+  display: none;
+  position: absolute; top: 62px; left: 0; right: 0; z-index: 45;
+  padding: 14px 22px 16px;
+  background: #0a1220;
+  border-bottom: 1px solid #1e3050;
+}
+.searchPanel.on { display: block; }
+.searchRow { display: flex; align-items: center; }
+.searchRow > .search { flex: 1 1 auto; }
+
+.search {
+  height: 44px; padding: 0 14px;
+  font-size: 16px; color: #eaf2ff;
+  background: #142338;
+  background: var(--deck2);
+  border: 1px solid #1e3050; border-radius: 3px;
+  border: 1px solid var(--rule); border-radius: 3px;
+  outline: none; min-width: 0;
+}
+.search:focus { border-color: #5db4ff; }
+.search::placeholder { color: #8ba0bd; }
+
+.searchCount {
+  flex: 0 0 auto; margin-left: 16px;
+  font-size: 13px; font-weight: 600; color: #9ed0ff;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.filters {
+  margin-top: 12px;
+  max-height: 88px; overflow-y: auto;
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.chipFilter {
+  display: inline-block; margin: 0 8px 8px 0;
+  padding: 6px 13px;
+  font-size: 12.5px; font-weight: 500; color: #8ba0bd;
+  background: transparent;
+  border: 1px solid #1e3050; border-radius: 3px;
+  cursor: pointer;
+}
+.chipFilter:hover { color: #eaf2ff; border-color: #2f7fd0; }
+.chipFilter.on {
+  color: #060b14;
+  background: #5db4ff;
+  border-color: #9ed0ff;
+  font-weight: 700;
+}
+
+/* ---------------- Riel de navegacion ----------------
+   El riel es la columna vertebral: define el recorrido y el contenido
+   nunca flota suelto a su izquierda. */
+.rail {
+  flex: 0 0 186px; width: 186px;
+  padding: 10px 0 20px;
+  overflow-y: auto;
+  background: #0a1220;
+  border-right: 1px solid #1e3050;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+
+.sidehead {
+  padding: 18px 18px 7px;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 1.4px;
+  color: #5d7290;
+}
+.sidehead:first-child { padding-top: 8px; }
 
 .sideItem {
-  display: block;
-  width: 100%; margin-bottom: 8px; padding: 12px 6px;
-  text-align: center;
-  background: transparent;
-  border: 0; border-radius: 8px;
-  cursor: pointer;
-  transition: background .14s, color .14s;
-}
-/* Iconos del lateral dibujados con CSS puro. Los emojis no existen en los
-   navegadores nativos de televisor, asi que cada icono es una forma hecha
-   con bordes y sombras: no depende de ninguna fuente ni de red. */
-.sideItem .si {
-  display: block;
   position: relative;
-  width: 26px; height: 22px; margin: 0 auto;
-  color: #94a6bd;
+  display: flex; align-items: center;
+  width: 100%; margin: 0; padding: 10px 16px 10px 15px;
+  text-align: left;
+  background: transparent;
+  border: 0; border-left: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap; overflow: hidden;
+  transition: background .14s, border-color .14s;
+}
+.sideItem:hover { background: rgba(93,180,255,.06); }
+.sideItem .si {
+  position: relative; flex: 0 0 24px; width: 24px; height: 22px;
+  margin-right: 12px; color: #8ba0bd;
   transition: color .14s;
 }
-
-/* television: marco con antena */
-.si.tv::before {
-  content: ""; position: absolute; left: 0; bottom: 0;
-  width: 26px; height: 16px;
-  border: 2px solid currentColor; border-radius: 3px;
-}
-.si.tv::after {
-  content: ""; position: absolute; left: 8px; top: 0;
-  width: 12px; height: 8px;
-  border-left: 2px solid currentColor; border-top: 2px solid currentColor;
-  transform: rotate(-45deg); transform-origin: bottom left;
-}
-
-/* serie / pelicula: claqueta */
-.si.serie::before {
-  content: ""; position: absolute; left: 0; top: 4px;
-  width: 26px; height: 16px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.serie::after {
-  content: ""; position: absolute; left: 4px; top: 0;
-  width: 18px; height: 6px;
-  border-top: 2px solid currentColor;
-}
-
-/* kids: cara sonriente */
-.si.kids::before {
-  content: ""; position: absolute; left: 1px; top: 1px;
-  width: 24px; height: 20px;
-  border: 2px solid currentColor; border-radius: 50%;
-}
-.si.kids::after {
-  content: ""; position: absolute; left: 7px; bottom: 4px;
-  width: 12px; height: 6px;
-  border: 2px solid currentColor; border-top: 0;
-  border-radius: 0 0 8px 8px;
-}
-
-/* anime: estrella */
-.si.anime::before {
-  content: "\2605"; position: absolute; left: 0; top: 0;
-  width: 26px; height: 22px; line-height: 22px; text-align: center;
-  font-size: 21px;
-}
-
-/* sport: balon */
-.si.sport::before {
-  content: ""; position: absolute; left: 1px; top: 1px;
-  width: 24px; height: 20px;
-  border: 2px solid currentColor; border-radius: 50%;
-}
-.si.sport::after {
-  content: ""; position: absolute; left: 11px; top: 3px;
-  width: 6px; height: 6px;
-  border: 2px solid currentColor; border-radius: 50%;
-}
-
-/* news: periodico */
-.si.news::before {
-  content: ""; position: absolute; left: 1px; top: 2px;
-  width: 24px; height: 18px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.news::after {
-  content: ""; position: absolute; left: 5px; top: 8px;
-  width: 10px; height: 8px;
-  border-left: 2px solid currentColor; border-right: 2px solid currentColor;
-}
-
-/* documental: libro */
-.si.doc::before {
-  content: ""; position: absolute; left: 2px; top: 1px;
-  width: 22px; height: 20px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.doc::after {
-  content: ""; position: absolute; left: 12px; top: 1px;
-  width: 2px; height: 20px; background: currentColor;
-}
-
-/* musica: nota */
-.si.music::before {
-  content: ""; position: absolute; left: 7px; bottom: 1px;
-  width: 6px; height: 6px; background: currentColor; border-radius: 50%;
-}
-.si.music::after {
-  content: ""; position: absolute; left: 12px; top: 0;
-  width: 2px; height: 14px; background: currentColor;
-  box-shadow: 5px 3px 0 0 currentColor;
-}
-
-/* adult: candado */
-.si.lock::before {
-  content: ""; position: absolute; left: 3px; top: 9px;
-  width: 20px; height: 12px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.lock::after {
-  content: ""; position: absolute; left: 8px; top: 2px;
-  width: 10px; height: 12px;
-  border: 2px solid currentColor; border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-}
-
-/* relig: cruz */
-.si.cross::before {
-  content: ""; position: absolute; left: 11px; top: 0;
-  width: 4px; height: 22px; background: currentColor;
-}
-.si.cross::after {
-  content: ""; position: absolute; left: 5px; top: 6px;
-  width: 16px; height: 4px; background: currentColor;
-}
-
-/* guia: lista con reloj */
-.si.guide::before {
-  content: ""; position: absolute; left: 1px; top: 1px;
-  width: 24px; height: 20px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.guide::after {
-  content: ""; position: absolute; left: 6px; top: 7px;
-  width: 14px; height: 2px; background: currentColor;
-  box-shadow: 0 5px 0 0 currentColor;
-}
-
-/* explorar: lupa */
-.si.search::before {
-  content: ""; position: absolute; left: 2px; top: 2px;
-  width: 15px; height: 15px;
-  border: 2px solid currentColor; border-radius: 50%;
-}
-.si.search::after {
-  content: ""; position: absolute; left: 16px; top: 15px;
-  width: 9px; height: 2px; background: currentColor;
-  transform: rotate(45deg); transform-origin: left center;
-}
-
-/* lista: pila de rayas, para distinguir una lista de un canal */
-.si.list::before {
-  content: ""; position: absolute; left: 2px; top: 2px;
-  width: 22px; height: 18px;
-  border: 2px solid currentColor; border-radius: 2px;
-}
-.si.list::after {
-  content: ""; position: absolute; left: 6px; top: 7px;
-  width: 14px; height: 2px; background: currentColor;
-  box-shadow: 0 4px 0 0 currentColor, 0 8px 0 0 currentColor;
-}
-
-/* Separadores de seccion del lateral */
-.sidehead {
-  display: block;
-  padding: 14px 6px 6px;
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 1.8px; text-transform: uppercase;
-  color: #64768c;
-}
-.sideItem.isSource .st { color: #cfe0f5; }
 .sideItem .st {
-  display: block; margin-top: 6px;
-  font-size: 11.5px; font-weight: 500; line-height: 1.3;
-  color: #94a6bd;
+  font-size: 13.5px; color: #b8c8dd;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sideItem .sn { display: none; }
-
+.sideItem .sn {
+  margin-left: auto; padding-left: 8px;
+  font-size: 11px; color: #5d7290;
+  font-variant-numeric: tabular-nums;
+}
 .sideItem.active {
-  background: #16233a;
-  background: var(--panel2);
+  background: rgba(93,180,255,.10);
+  border-left-color: #5db4ff;
 }
-.sideItem.active .si,
-.sideItem.active .st {
-  color: #4aa3ff;
-  color: var(--accent);
-}
-.sideItem.active .st { font-weight: 700; }
+.sideItem.active .st { color: #eaf2ff; font-weight: 700; }
+.sideItem.active .si { color: #5db4ff; }
+.sideItem.active .sn { color: #9ed0ff; }
 
-.content {
-  flex: 1 1 auto; min-width: 0;
-  display: flex; flex-direction: column;
-}
-/* En tableta y movil la pila no debe medir con el contenido: si no, el
-   bloque con scroll de .layout no tiene un alto donde desplazar. */
-@media (max-width: 900px) {
-  .content { display: block; }
-}
+/* Iconos dibujados con CSS: los emojis no existen en estos navegadores. */
+.si.tv::before { content: ""; position: absolute; left: 0; bottom: 0; width: 24px; height: 15px; border: 2px solid currentColor; border-radius: 2px; }
+.si.tv::after  { content: ""; position: absolute; left: 7px; top: 0; width: 11px; height: 8px; border-left: 2px solid currentColor; border-top: 2px solid currentColor; transform: rotate(-45deg); transform-origin: bottom left; }
 
-/* ---------------- Carrusel de destacados ----------------
-   La referencia lo pinta como un bloque con degradado vertical de rojo a
-   superficie (FeaturedBanner), con el texto pegado abajo a la izquierda y
-   un boton rojo de accion. Aqui se mantiene la caratula real de fondo. */
-.hero {
+.si.serie::before { content: ""; position: absolute; left: 0; top: 4px; width: 24px; height: 15px; border: 2px solid currentColor; border-radius: 2px; }
+.si.serie::after  { content: ""; position: absolute; left: 4px; top: 0; width: 16px; height: 6px; border-top: 2px solid currentColor; }
+
+.si.kids::before { content: ""; position: absolute; left: 1px; top: 1px; width: 22px; height: 19px; border: 2px solid currentColor; border-radius: 50%; }
+.si.kids::after  { content: ""; position: absolute; left: 6px; bottom: 4px; width: 12px; height: 6px; border: 2px solid currentColor; border-top: 0; border-radius: 0 0 8px 8px; }
+
+.si.anime::before { content: "\2605"; position: absolute; left: 0; top: 0; width: 24px; height: 22px; line-height: 22px; text-align: center; font-size: 19px; }
+
+.si.sport::before { content: ""; position: absolute; left: 1px; top: 1px; width: 22px; height: 19px; border: 2px solid currentColor; border-radius: 50%; }
+.si.sport::after  { content: ""; position: absolute; left: 10px; top: 3px; width: 6px; height: 6px; border: 2px solid currentColor; border-radius: 50%; }
+
+.si.news::before { content: ""; position: absolute; left: 1px; top: 2px; width: 22px; height: 17px; border: 2px solid currentColor; border-radius: 2px; }
+.si.news::after  { content: ""; position: absolute; left: 5px; top: 8px; width: 9px; height: 8px; border-left: 2px solid currentColor; border-right: 2px solid currentColor; }
+
+.si.doc::before  { content: ""; position: absolute; left: 2px; top: 1px; width: 20px; height: 19px; border: 2px solid currentColor; border-radius: 2px; }
+.si.doc::after   { content: ""; position: absolute; left: 11px; top: 1px; width: 2px; height: 19px; background: currentColor; }
+
+.si.music::before { content: ""; position: absolute; left: 6px; bottom: 1px; width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.si.music::after  { content: ""; position: absolute; left: 11px; top: 0; width: 2px; height: 13px; background: currentColor; box-shadow: 5px 3px 0 0 currentColor; }
+
+.si.lock::before { content: ""; position: absolute; left: 3px; top: 9px; width: 18px; height: 11px; border: 2px solid currentColor; border-radius: 2px; }
+.si.lock::after  { content: ""; position: absolute; left: 7px; top: 2px; width: 10px; height: 12px; border: 2px solid currentColor; border-bottom: 0; border-radius: 6px 6px 0 0; }
+
+.si.cross::before { content: ""; position: absolute; left: 10px; top: 0; width: 4px; height: 22px; background: currentColor; }
+.si.cross::after  { content: ""; position: absolute; left: 4px; top: 6px; width: 16px; height: 4px; background: currentColor; }
+
+.si.guide::before { content: ""; position: absolute; left: 1px; top: 1px; width: 22px; height: 19px; border: 2px solid currentColor; border-radius: 2px; }
+.si.guide::after  { content: ""; position: absolute; left: 5px; top: 7px; width: 14px; height: 2px; background: currentColor; box-shadow: 0 5px 0 0 currentColor; }
+
+.si.search::before { content: ""; position: absolute; left: 1px; top: 1px; width: 14px; height: 14px; border: 2px solid currentColor; border-radius: 50%; }
+.si.search::after  { content: ""; position: absolute; left: 15px; top: 14px; width: 9px; height: 2px; background: currentColor; transform: rotate(45deg); transform-origin: left center; }
+
+.si.list::before { content: ""; position: absolute; left: 2px; top: 2px; width: 20px; height: 17px; border: 2px solid currentColor; border-radius: 2px; }
+.si.list::after  { content: ""; position: absolute; left: 5px; top: 7px; width: 14px; height: 2px; background: currentColor; box-shadow: 0 4px 0 0 currentColor, 0 8px 0 0 currentColor; }
+
+/* ---------------- Lienzo ---------------- */
+.canvas { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+
+/* Cartela: el destacado. Es un bloque de emision, con la foto a la derecha
+   y el texto alineado a la izquierda, sin centrados ni esquinas suaves. */
+.cardela {
   position: relative;
   flex: 0 0 auto;
-  height: 320px;
-  margin: 24px 24px 0;
+  height: 300px;
+  margin: 18px 26px 0;
   overflow: hidden;
-  border-radius: 12px;
-  background: #16233a;
-  background: var(--panel2);
+  background: #142338;
+  background: var(--deck2);
+  border: 1px solid #1e3050;
+  border: 1px solid var(--rule);
   outline: none;
 }
-.heroTrack {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  display: flex;
-  transition: transform .45s cubic-bezier(.22,.7,.25,1);
-}
+.cardelaTrack { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; transition: transform .42s cubic-bezier(.2,.7,.25,1); }
 
-.slide {
-  position: relative;
-  flex: 0 0 100%; width: 100%; height: 100%;
-  overflow: hidden;
-}
-/* Fondo difuminado de la caratula: da color sin perder legibilidad */
+.slide { position: relative; flex: 0 0 100%; width: 100%; height: 100%; overflow: hidden; }
 .slide .artbg {
-  position: absolute; inset: -8%;
-  background: #16233a center / cover no-repeat;
-  filter: blur(30px) saturate(1.1) brightness(.42);
-  transform: scale(1.06);
+  position: absolute; top: -8%; right: -8%; bottom: -8%; left: 34%;
+  background: #142338 center / cover no-repeat;
+  filter: blur(28px) brightness(.45);
 }
-/* Sin caratula: degradado rojo de marca, como el banner de la referencia */
-.slide.plain .artbg,
-.slide .artbg.blank {
-  background: linear-gradient(180deg, rgba(74,163,255,.60) 0%, #0f1927 100%);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent) 0%, var(--panel) 100%);
-  filter: none;
-}
-
+.slide .artbg.blank, .slide.plain .artbg { filter: none; background: linear-gradient(140deg, #142338, #0a1220); }
 .slide .art {
-  position: absolute; top: 0; right: 0; bottom: 0;
-  left: 30%;
+  position: absolute; top: 0; right: 0; bottom: 0; left: 32%;
   width: auto; height: 100%;
   object-fit: contain;
-  object-position: center;
 }
-
 .slide .art.blank { display: none; }
-
 .slide .scrim {
-  position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(7,12,20,.94) 0%, rgba(7,12,20,.72) 34%, rgba(7,12,20,.25) 62%, rgba(7,12,20,.15) 100%);
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(90deg, rgba(6,11,20,.96) 0%, rgba(6,11,20,.86) 32%, rgba(6,11,20,.20) 60%, rgba(6,11,20,.10) 100%);
 }
 
-/* Sin flex aqui a proposito: el bloque apilado se comporta igual en los
-   motores de television antiguos, donde flex + posicion absoluta se
-   renderiza de forma inconsistente. */
-.slide .info {
-  position: absolute; left: 32px; bottom: 32px;
-  width: 54%;
-}
+.slide .info { position: absolute; left: 34px; bottom: 30px; width: 52%; }
 .slide .chip {
-  display: inline-block; margin-bottom: 12px; padding: 3px 10px;
-  font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
-  color: #ffffff;
-  background: rgba(74,163,255,.90);
-  border-radius: 4px;
+  display: inline-block; margin-bottom: 12px; padding: 3px 9px;
+  font-size: 11px; font-weight: 600; letter-spacing: .4px;
+  color: #9ed0ff;
+  border: 1px solid #2f7fd0; border-radius: 2px;
 }
 .slide h1 {
   margin: 0; max-width: 100%;
-  font-size: 36px; font-weight: 700; line-height: 1.1;
-  color: #ffffff;
+  font-size: 38px; font-weight: 800; line-height: 1.04; letter-spacing: -.6px;
+  color: #eaf2ff;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.slide p {
-  margin: 8px 0 0; max-width: 100%;
-  font-size: 16px; line-height: 1.45; color: #94a6bd;
-  max-height: 46px; overflow: hidden;
-}
-.slide .meta {
-  margin-top: 16px;
-  max-width: 100%;
-}
+.slide p { margin: 10px 0 0; max-width: 100%; font-size: 15px; line-height: 1.4; color: #8ba0bd; max-height: 42px; overflow: hidden; }
+.slide .meta { margin-top: 16px; max-width: 100%; }
 .slide .tag {
-  display: inline-block;
-  margin: 0 8px 0 0;
-  padding: 6px 14px;
-  font-size: 14px; font-weight: 600;
-  color: #ffffff;
-  background: #4aa3ff;
-  background: var(--accent);
-  border: 0; border-radius: 4px;
+  display: inline-block; margin: 0 8px 0 0;
+  padding: 8px 16px;
+  font-size: 13px; font-weight: 600;
+  color: #060b14;
+  background: #5db4ff;
+  border: 1px solid #9ed0ff; border-radius: 2px;
   cursor: pointer;
 }
-.slide .tag.live {
-  color: #ffffff;
-  background: #2b6fc4;
-  background: var(--accentPre);
-}
-.slide .tag.ghost {
-  background: rgba(255,255,255,.14);
-  color: #ffffff;
-}
+.slide .tag.live { color: #fff; background: #ff4d5e; border-color: #ff8a95; }
+.slide .tag.ghost { color: #8ba0bd; background: transparent; border-color: #1e3050; }
 
-/* Marco del slide enfocado con D-pad */
-.hero.focused { box-shadow: 0 0 0 2px #4aa3ff; }
-.hero .edge {
-  position: absolute; top: 0; bottom: 0; width: 4px;
-  background: #4aa3ff;
-  background: var(--accent);
-  opacity: 0;
-}
-.hero.focused .edge { opacity: 1; }
-.hero .edge.l { left: 0; }
-.hero .edge.r { right: 0; }
+.cardela.focused { border-color: #5db4ff; box-shadow: 0 0 0 1px #5db4ff, 0 0 30px rgba(93,180,255,.22); }
+.cardela .edge { position: absolute; top: 0; bottom: 0; width: 3px; background: #5db4ff; opacity: 0; }
+.cardela.focused .edge { opacity: 1; }
+.cardela .edge.l { left: 0; }
+.cardela .edge.r { right: 0; }
 
-/* Paginacion de puntos */
-.heroDots {
-  position: absolute; right: 22px; bottom: 18px; z-index: 6;
-  display: flex; align-items: center;
-  padding: 0;
-  background: transparent;
-  border: 0;
-}
-.heroDots i {
-  display: block; width: 8px; height: 8px; border-radius: 50%;
-  background: #3c4d66;
-  transition: background .18s, width .18s;
-}
-.heroDots i + i { margin-left: 8px; }
-.heroDots i.on {
-  width: 26px; border-radius: 4px;
-  background: #4aa3ff;
-  background: var(--accent);
-}
+.cardelaDots { position: absolute; right: 20px; bottom: 16px; z-index: 6; display: flex; align-items: center; }
+.cardelaDots i { display: block; width: 8px; height: 8px; background: #3d5878; cursor: pointer; }
+.cardelaDots i + i { margin-left: 6px; }
+.cardelaDots i.on { width: 24px; background: #5db4ff; }
+.cardelaEmpty { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #8ba0bd; background: #142338; }
 
-.heroEmpty {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; color: #94a6bd;  /* respaldo sin var() */
-  font-size: 14px; color: var(--dim);
-  background: linear-gradient(180deg, #16233a, #070c14);
-}
-
-/* ---------------- Estanterias ---------------- */
-.shelves {
+/* ---------------- Filas de canales ---------------- */
+.rows {
   flex: 1 1 auto; min-width: 0;
-  margin-top: 20px;
-  padding: 0 24px 24px;
+  margin-top: 16px;
+  padding: 0 26px 26px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #1d2c42 transparent;
+  scrollbar-color: #1e3050 transparent;
 }
+.shelf { margin-bottom: 24px; }
 
-.shelf { margin-bottom: 26px; }
-
-.shelfhead {
-  display: flex; align-items: baseline;
-  margin-bottom: 12px;
-}
-.shelfhead h2 + em { margin-left: 12px; }
-.shelfhead em + .rule { margin-left: 12px; }
+.shelfhead { display: flex; align-items: baseline; margin-bottom: 10px; }
+.shelfhead h2 + em { margin-left: 10px; }
 .shelfhead h2 {
   margin: 0;
-  font-size: 22px; font-weight: 600; letter-spacing: 0;
-  text-transform: none;
-  color: #ffffff;
+  font-size: 19px; font-weight: 700; letter-spacing: 0;
+  color: #eaf2ff;
 }
 .shelfhead em {
-  font-style: normal; font-size: 13px; letter-spacing: 0; color: #64768c;
+  font-style: normal; font-size: 12px; color: #5d7290;
+  font-variant-numeric: tabular-nums;
 }
 .shelfhead .rule { display: none; }
 
@@ -780,342 +402,203 @@ body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
 }
 .row::-webkit-scrollbar { display: none; }
 
-/* ---------------- Caratula ----------------
-   La referencia usa caratulas verticales de 160x220 con proporcion 0.727
-   (theme-config.json cardAspectRatio), no 16:9. */
+/* Ficha: filete y foto plana. Sin sombra difusa ni esquinas iguales. */
 .card {
   position: relative;
   flex: 0 0 auto;
-  width: 160px;
+  width: 168px;
   margin-right: 12px;
   cursor: pointer;
   outline: none;
 }
-
 .thumb {
   position: relative;
-  width: 100%; padding-bottom: 137.5%;   /* vertical 160x220 */
-  background: #16233a center / cover no-repeat;
-  border: 2px solid transparent;
-  border-radius: 8px;  /* respaldo sin var() */
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: 0 4px 14px rgba(0,0,0,.6);
-  transition: border-color .14s, transform .14s, box-shadow .14s;
+  width: 100%; padding-bottom: 56.25%;
+  background: #142338 center / cover no-repeat;
+  border: 1px solid #1e3050;
+  outline: 1px solid transparent;
+  outline-offset: 0;
+  transition: outline-color .14s, transform .14s;
 }
-
-.thumb.blank {
-  background: linear-gradient(140deg, #1d2c42, #0f1927);
-}
-
-.thumb img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  padding: 5%;
-  object-fit: contain;
-}
-
-.card.focused .thumb {
-  border-color: #4aa3ff;  /* respaldo sin var() */
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(74,163,255,.45), 0 10px 24px rgba(0,0,0,.75);
-  transform: scale(1.05);
-}
+.thumb.blank { background: linear-gradient(150deg, #16233a, #0d1826); }
+.thumb img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; padding: 5%; object-fit: contain; }
+.card.focused .thumb { outline: 2px solid #5db4ff; transform: scale(1.06); }
 
 .badge {
-  position: absolute; top: 6px; left: 6px; z-index: 2;
-  display: table; padding: 3px 7px;
-  font-size: 9px; font-weight: 700; letter-spacing: .8px;
+  position: absolute; top: 5px; left: 5px; z-index: 2;
+  display: table; padding: 2px 6px 2px 15px;
+  font-size: 8.5px; font-weight: 700; letter-spacing: .8px;
   white-space: nowrap;
-  color: #fff; background: rgba(7,12,20,.85);
-  border-radius: 3px;
+  color: #fff;
+  background: #ff4d5e;
+  border-radius: 2px;
 }
-/* Punto de "en vivo" dibujado con un pseudo-elemento: no depende de
-   fuentes de iconos ni de emojis, que no existen en todos los televisores. */
-.badge.live::before {
-  content: ""; position: absolute; left: 6px; top: 50%;
+.badge::before {
+  content: ""; position: absolute; left: 5px; top: 50%;
   width: 5px; height: 5px; margin-top: -2px;
   background: #fff; border-radius: 50%;
 }
-/* Unico rojo de la interfaz: "en vivo". Es lo unico que debe saltar
-   sobre una paleta fria, asi que no se usa en ninguna otra pieza. */
-.badge.live {
-  padding-left: 15px;
-  background: #e5484d;  /* respaldo sin var() */
-  background: var(--live);
-}
-
-/* Nota: el nombre de clase "live" se reutiliza en las etiquetas del
-   carrusel (.slide .tag.live), asi que ninguna regla con posicion
-   absoluta puede llevar ese nombre sin calificar: si se colase dentro
-   de .card, ganaria por orden a .badge.live y las etiquetas se iran a
-   la esquina de la caratula. */
 
 .ttl {
-  margin-top: 9px;
-  font-size: 13px; line-height: 1.3; color: #94a6bd;
+  margin-top: 8px;
+  font-size: 12.5px; line-height: 1.3; color: #8ba0bd;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.card.focused .ttl { color: #fff; font-weight: 600; }
+.card.focused .ttl { color: #eaf2ff; font-weight: 700; }
+.onair { display: block; margin-top: 2px; font-size: 10.5px; color: #5db4ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.onair {
-  display: block; margin-top: 3px;
-  font-size: 11px; color: #35c98a;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.moreHint { display: block; margin-bottom: 6px; font-size: 11px; color: #5d7290; }
 
 /* ---------------- Guia ---------------- */
-.epg {
-  position: absolute; top: 74px; left: 0; right: 0; bottom: 0;
-  display: flex; flex-direction: column;
-}
-
-.epg-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 24px 12px;
-}
-.epg-nav {
-  padding: 8px 17px; font-size: 14px; color: #94a6bd;
-  background: #0f1927;
-  background: var(--panel);
-  border: 1px solid #1d2c42; border-radius: 8px;  /* respaldo sin var() */
-  border: 1px solid var(--line); border-radius: 8px;
-  cursor: pointer;
-}
-.epg-nav:focus {
-  color: #ffffff; outline: none;
-  background: #4aa3ff;
-  background: var(--accent);
-  border-color: #4aa3ff;
-}
-.epg-range { font-size: 13px; color: #64768c; }
-
-.epg-labels { flex: 0 0 186px; width: 186px; overflow: hidden; border-right: 1px solid #1d2c42; }
-.epg-label { height: 56px; padding: 8px 12px; border-bottom: 1px solid #16233a; overflow: hidden; }
-.epg-label.focused { background: #16233a; }
-.epg-logoname {
-  display: block; font-size: 12.5px; font-weight: 700;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.epg-label.focused .epg-logoname { color: #4aa3ff; }
-.epg-now {
-  display: block; margin-top: 3px; font-size: 11px; color: #94a6bd;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
+.epg { position: absolute; top: 62px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+.epg-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 26px 12px; }
+.epg-nav { padding: 8px 16px; font-size: 14px; color: #8ba0bd; background: #0c1626; border: 1px solid #1e3050; border-radius: 3px; cursor: pointer; }
+.epg-nav:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }
+.epg-range { font-size: 13px; color: #5d7290; }
+.epg-labels { flex: 0 0 186px; width: 186px; overflow: hidden; border-right: 1px solid #1e3050; }
+.epg-label { height: 56px; padding: 8px 12px; border-bottom: 1px solid #142338; overflow: hidden; }
+.epg-label.focused { background: #142338; }
+.epg-logoname { display: block; font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.epg-label.focused .epg-logoname { color: #5db4ff; }
+.epg-now { display: block; margin-top: 3px; font-size: 11px; color: #8ba0bd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .epg-body { flex: 1 1 auto; display: flex; min-height: 0; }
 .epg-scroll { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-.epg-axis { display: flex; height: 22px; border-bottom: 1px solid #1d2c42; }
-.epg-slot {
-  flex: 0 0 auto; font-size: 11px; color: #64768c;
-  border-left: 1px solid #16233a; padding-left: 5px;
-}
+.epg-axis { display: flex; height: 22px; border-bottom: 1px solid #1e3050; }
+.epg-slot { flex: 0 0 auto; font-size: 11px; color: #5d7290; border-left: 1px solid #142338; padding-left: 5px; }
 .epg-tracks { position: relative; }
-.epg-row { position: relative; height: 56px; border-bottom: 1px solid #16233a; }
-
-.epg-prog {
-  position: absolute; top: 3px; bottom: 3px;
-  padding: 4px 7px; overflow: hidden;
-  background: #16233a;
-  border-left: 3px solid #33455e; border-radius: 4px;
-  cursor: pointer;
-}
-.epg-prog b {
-  display: block; font-size: 11.5px; font-weight: 600; color: #ffffff;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.epg-prog i { display: block; margin-top: 1px; font-size: 10px; font-style: normal; color: #94a6bd; }
-.epg-prog.now { background: #1d2c42; }
-.epg-prog.sel {
-  border-left-color: #4aa3ff;  /* respaldo sin var() */
-  border-left-color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(74,163,255,.50);
-}
-.epg-prog.sel b { color: #fff; }
-
-.epg-prog.t-sports      { border-left-color: #ff8a3d; }
-.epg-prog.t-movie       { border-left-color: #4a9dff; }
-.epg-prog.t-series      { border-left-color: #a56bff; }
-.epg-prog.t-news        { border-left-color: #35c98a; }
-.epg-prog.t-kids        { border-left-color: #ff5c8a; }
-.epg-prog.t-documentary { border-left-color: #46c0d8; }
-
-.epg-needle {
-  position: absolute; top: 0; bottom: 0; width: 2px;
-  background: #4aa3ff; z-index: 5; pointer-events: none;
-}
-
-.epg-empty {
-  position: absolute; top: 110px; left: 0; right: 0; text-align: center;
-  font-size: 15px; line-height: 1.9; color: #94a6bd;
-}
-.epg-empty code {
-  padding: 2px 6px; color: #ffffff; background: #16233a;
-  border: 1px solid #27384f; border-radius: 4px;
-}
+.epg-row { position: relative; height: 56px; border-bottom: 1px solid #142338; }
+.epg-prog { position: absolute; top: 3px; bottom: 3px; padding: 4px 7px; overflow: hidden; background: #142338; border-left: 3px solid #3d5878; border-radius: 2px; cursor: pointer; }
+.epg-prog b { display: block; font-size: 11.5px; font-weight: 600; color: #eaf2ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.epg-prog i { display: block; margin-top: 1px; font-size: 10px; font-style: normal; color: #8ba0bd; }
+.epg-prog.now { background: #1a2c45; }
+.epg-prog.sel { border-left-color: #5db4ff; box-shadow: inset 0 0 0 1px rgba(93,180,255,.5); }
+.epg-prog.t-sports { border-left-color: #2dd4bf; }
+.epg-prog.t-movie { border-left-color: #818cf8; }
+.epg-prog.t-series { border-left-color: #a78bfa; }
+.epg-prog.t-news { border-left-color: #5db4ff; }
+.epg-prog.t-kids { border-left-color: #f472b6; }
+.epg-prog.t-documentary { border-left-color: #2dd4bf; }
+.epg-needle { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff4d5e; z-index: 5; pointer-events: none; }
+.epg-empty { position: absolute; top: 110px; left: 0; right: 0; text-align: center; font-size: 15px; line-height: 1.9; color: #8ba0bd; }
+.epg-empty code { padding: 2px 6px; color: #9ed0ff; background: #142338; border: 1px solid #1e3050; border-radius: 2px; }
 
 /* ---------------- Reproductor ---------------- */
 #playerScreen { position: relative; height: 100%; background: #000; }
 #video { width: 100%; height: 100%; background: #000; }
-
-.overlay {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 22px 40px 24px;
-  background: linear-gradient(to top, rgba(0,0,0,.92), rgba(0,0,0,0));
-}
+.overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 44px 26px; background: linear-gradient(to top, rgba(0,0,0,.94), rgba(0,0,0,0)); }
 .bar { display: flex; align-items: baseline; justify-content: space-between; }
 .bar > * + * { margin-left: 16px; }
-.nowTitle {
-  margin: 0; font-size: 22px; font-weight: 700;
-  text-shadow: 0 2px 14px rgba(0,0,0,.9);
-}
-.status { font-size: 12.5px; color: #94a6bd; text-align: right; }
-.status.error { color: #ff6b6b; }
-
+.nowTitle { margin: 0; font-size: 24px; font-weight: 700; }
+.status { font-size: 12.5px; color: #8ba0bd; text-align: right; }
+.status.error { color: #ff4d5e; }
 .quality { margin-top: 12px; min-height: 30px; }
-.q {
-  display: inline-block; margin-right: 7px; padding: 6px 14px;
-  font-size: 12.5px; color: #ffffff;
-  background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.18); border-radius: 4px;
-  cursor: pointer;
+.q { display: inline-block; margin-right: 7px; padding: 6px 13px; font-size: 12.5px; color: #eaf2ff; background: transparent; border: 1px solid rgba(234,242,255,.28); border-radius: 2px; cursor: pointer; }
+.q.active, .q:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }
+
+.playerActions { margin-top: 14px; }
+.pbtn { display: inline-block; margin-right: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; color: #eaf2ff; background: transparent; border: 1px solid rgba(234,242,255,.28); border-radius: 2px; cursor: pointer; }
+.pbtn:hover { background: rgba(234,242,255,.10); }
+.pbtn:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }
+.pbtn.danger { border-color: rgba(255,77,94,.55); color: #ff8a95; }
+.pbtn.danger:focus { color: #fff; background: #ff4d5e; border-color: #ff8a95; }
+
+.stoppedMsg { margin-top: 14px; padding: 12px 16px; font-size: 14px; color: #8ba0bd; background: rgba(12,22,38,.9); border: 1px solid #1e3050; border-radius: 2px; }
+.stoppedMsg b { display: block; color: #ff8a95; margin-bottom: 4px; }
+.hint { margin: 12px 0 0; font-size: 11.5px; letter-spacing: .3px; color: #5d7290; }
+
+/* ---------------- Aviso ---------------- */
+.toast {
+  display: none; position: fixed; left: 50%; bottom: 38px;
+  transform: translateX(-50%); max-width: 78%;
+  padding: 12px 20px; font-size: 13.5px;
+  color: #eaf2ff;
+  background: rgba(12,22,38,.97);
+  border: 1px solid #5db4ff;
+  border-radius: 2px; z-index: 60;
 }
-.q.active, .q:focus {
-  color: #ffffff; outline: none;
-  background: #4aa3ff;
-  background: var(--accent);
-  border-color: #4aa3ff;
-}
 
-.hint { margin: 12px 0 0; font-size: 11.5px; letter-spacing: .4px; color: #64768c; }
-
-/* ---------------- Escalones de pantalla ----------------
-   El televisor de referencia es 1280x720. Por debajo se aprieta el
-   cromado; en tableta y movil el lateral se convierte en una tira
-   horizontal y las estanterias en rejilla, porque en vertical no hay
-   ancho para desplazar filas con el dedo.
-
-   El orden importa: cada bloque baja el max-width del anterior, asi que
-   lo mas estrecho esta al final y gana cuando coinciden los dos. */
+/* ===================================================================
+   Escalones de pantalla. El televisor de referencia es 1280x720; por
+   debajo se aprieta el cromado y en vertical las fichas pasan a rejilla.
+   =================================================================== */
 @media (max-width: 1100px) {
-  .sidebar { flex: 0 0 152px; width: 152px; padding: 20px 6px 16px; }
-  .sideItem { padding: 10px 4px; }
-  .sideItem .si { transform: scale(.9); }
-  .card { width: 142px; }
-  .hero { margin: 20px 18px 0; }
-  .shelves { padding: 0 18px 22px; }
-  .slide h1 { font-size: 28px; }
-  .clock { font-size: 19px; }
+  .rail { flex: 0 0 168px; width: 168px; }
+  .card { width: 150px; }
+  .cardela { height: 250px; margin: 16px 20px 0; }
+  .rows { padding: 0 20px 22px; }
+  .slide h1 { font-size: 30px; }
+  .clock { font-size: 17px; }
 }
+
 @media (max-height: 700px) {
-  .topbar { height: 64px; }
-  .epg { top: 64px; }
-  .hero { height: 250px; margin-top: 14px; }
-  .shelves { margin-top: 14px; }
-  .slide .info { bottom: 24px; }
+  .band { height: 54px; }
+  .epg { top: 54px; }
+  .searchPanel { top: 54px; }
+  .cardela { height: 220px; margin-top: 12px; }
+  .rows { margin-top: 12px; }
+  .slide .info { bottom: 22px; }
   .slide h1 { font-size: 26px; }
   .shelf { margin-bottom: 18px; }
+  .card { width: 138px; }
+}
+
+/* Tableta: el riel pasa a tira horizontal. */
+@media (max-width: 900px) {
+  .band { height: 56px; padding: 0 16px; }
+  .band > * + * { margin-left: 14px; }
+  .layout { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .epg { top: 56px; }
+  .searchPanel { top: 56px; }
+
+  .rail {
+    display: block; width: auto;
+    padding: 8px 16px;
+    overflow-x: auto; overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid #1e3050;
+  }
+  .rail::-webkit-scrollbar { display: none; }
+  .sidehead { display: none; }
+  .sideItem {
+    display: inline-block; width: auto; margin: 0 8px 0 0;
+    padding: 7px 12px;
+    border: 1px solid #1e3050; border-left-width: 1px;
+  }
+  .sideItem.active { background: rgba(93,180,255,.12); border-left-color: #5db4ff; }
+  .sideItem .si { margin-right: 7px; }
+  .sideItem .sn { display: none; }
+
+  .cardela { height: 260px; margin: 14px 16px 0; }
+  .slide .info { left: 22px; bottom: 22px; width: 62%; }
+  .slide h1 { font-size: 24px; }
+  .rows { margin-top: 14px; padding: 0 16px 22px; overflow: visible; }
+  .shelfhead h2 { font-size: 17px; }
   .card { width: 132px; }
 }
 
-/* En tableta y movil el scroll vertical lo lleva .layout, no .shelves:
-   dos contenedores anidados con scroll dividen el gesto en el movil y
-   elarrastrar vertical se queda a medias. */
-@media (max-width: 900px) {
-  .shelves { overflow: visible; }
-}
-
-/* ---- Tableta: el lateral pasa a ser una tira bajo la cabecera ---- */
-@media (max-width: 900px) {
-  .topbar { height: 62px; padding: 0 18px; }
-  .topbar > * + * { margin-left: 14px; }
-  /* Bloque con scroll propio: el lateral deja de ser columna y pasa a
-     tira horizontal, asi que ya no es una fila de dos sino una pila. */
-  .layout { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .epg { top: 62px; }
-
-  .topnav { margin-left: 0; }
-  .statusIcons { display: none; }
-  .clock { font-size: 18px; }
-  .clock small { display: none; }
-
-  /* Tira de categorias desplazable: aqui si vuelven a ir en linea,
-     porque en vertical caben many mas que en una columna de 140 px. */
-  .sidebar {
-    display: block; width: auto;
-    padding: 10px 16px;
-    overflow-x: auto; overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    background: #0f1927;
-    border-right: 0;
-    border-bottom: 1px solid #1d2c42;
-  }
-  .sidebar::-webkit-scrollbar { display: none; }
-  .sideItem {
-    display: inline-block; width: auto; margin: 0 8px 0 0;
-    padding: 8px 14px; text-align: center;
-  }
-  .sideItem .si { display: inline-block; margin: 0 7px 0 0; vertical-align: middle; transform: scale(.62); }
-  .sideItem .st { display: inline-block; margin: 0; vertical-align: middle; }
-  .sideItem.active { background: #16233a; }
-  .sideItem.active .si, .sideItem.active .st { color: #4aa3ff; }
-
-  .hero { height: 300px; margin: 14px 16px 0; }
-  .slide .info { left: 24px; bottom: 24px; width: 60%; }
-  .slide h1 { font-size: 24px; }
-  .slide p { font-size: 14px; }
-  .shelves { margin-top: 14px; padding: 0 16px 22px; }
-  .shelf { margin-bottom: 20px; }
-  .shelfhead h2 { font-size: 18px; }
-  .card { width: 130px; }
-}
-
-/* ---- Movil: rejilla de caratulas y carrusel mas bajo ---- */
+/* Telefono: rejilla de fichas y carrusel mas bajo. */
 @media (max-width: 620px) {
-  .topbar { height: 58px; padding: 0 12px; }
-  .epg { top: 58px; }
-
-  .brandMark { font-size: 16px; letter-spacing: 3px; }
-  .brandText { font-size: 9px; letter-spacing: 3px; }
-  .topnav button { padding: 8px 14px; font-size: 13px; }
-  .topright > * + * { margin-left: 10px; }
-  .icoBtn { width: 34px; height: 34px; font-size: 17px; }
-  .clock { font-size: 16px; }
-  .searchPanel { top: 58px; padding: 10px 12px 12px; }
+  .band { height: 52px; padding: 0 12px; }
+  .epg { top: 52px; }
+  .searchPanel { top: 52px; padding: 10px 12px 12px; }
+  .tallyText { display: none; }
+  .clock { font-size: 15px; }
+  .clock small { display: none; }
+  .onAirList { font-size: 12px; }
   .searchCount { font-size: 12px; margin-left: 10px; }
-  .chipFilter { font-size: 12px; padding: 6px 11px; }
+  .chipFilter { font-size: 12px; padding: 5px 10px; }
 
-  .sidebar { padding: 9px 12px; }
-  .sideItem { padding: 7px 12px; }
-  .sideItem .si { transform: scale(.55); margin-right: 5px; }
-  .sideItem .st { font-size: 12px; margin-left: 0; }
-
-  .hero { height: 240px; margin: 12px 12px 0; border-radius: 10px; }
-  .slide .art { left: 20%; }
-  .slide .info { left: 16px; bottom: 18px; width: 84%; }
+  .cardela { height: 220px; margin: 12px 12px 0; }
+  .slide .art { left: 18%; }
+  .slide .info { left: 16px; bottom: 18px; width: 86%; }
   .slide h1 { font-size: 19px; }
   .slide p { font-size: 12.5px; max-height: 34px; }
-  .heroDots { right: 12px; bottom: 12px; }
-  .heroDots i + i { margin-left: 7px; }
-  .heroDots i.on { width: 20px; }
+  .cardelaDots { right: 12px; bottom: 12px; }
 
-  /* Rejilla: con pocas caratulas por fila cabe mejor que una fila
-     desplazable, y el pulgar no tiene que buscar en horizontal. */
-  .row {
-    display: block; overflow: visible;
-    padding: 0; margin: 0;
-  }
-  .card {
-    display: inline-block; vertical-align: top;
-    width: 31%; margin: 0 3.5% 14px 0;
-  }
+  .row { display: block; overflow: visible; padding: 0; margin: 0; }
+  .card { display: inline-block; vertical-align: top; width: 31%; margin: 0 3.5% 14px 0; }
   .row .card:nth-child(3n) { margin-right: 0; }
   .ttl { font-size: 11.5px; margin-top: 6px; }
-  .badge { font-size: 8px; padding: 2px 5px; top: 4px; left: 4px; }
-  .badge.live { padding-left: 13px; }
-  .badge.live::before { left: 5px; width: 5px; height: 5px; margin-top: -2px; }
-  .onair { font-size: 10px; }
   .shelfhead h2 { font-size: 16px; }
 
   .overlay { padding: 16px 16px 18px; }
@@ -1123,51 +606,43 @@ body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
   .toast { bottom: 20px; max-width: 90%; font-size: 12.5px; padding: 10px 16px; }
 }
 
-/* ---- Movil pequeno: dos caratulas por fila ---- */
 @media (max-width: 380px) {
   .card { width: 47%; margin-right: 5%; }
   .row .card:nth-child(3n) { margin-right: 5%; }
   .row .card:nth-child(2n) { margin-right: 0; }
-  .hero { height: 210px; }
+  .cardela { height: 200px; }
   .slide h1 { font-size: 17px; }
 }
 
-/* ---- Pantallas muy anchas: no estirar el contenido mas de lo justo ---- */
 @media (min-width: 1800px) {
-  .sidebar { flex: 0 0 200px; width: 200px; padding: 32px 10px 22px; }
-  .sideItem { padding: 15px 6px; }
-  .sideItem .si { transform: scale(1.05); }
-  .sideItem .st { font-size: 13px; }
-  .hero { height: 460px; margin: 28px 32px 0; }
-  .slide .info { left: 44px; bottom: 44px; width: 50%; }
-  .slide h1 { font-size: 44px; }
-  .slide p { font-size: 17px; max-height: 50px; }
-  .slide .chip { font-size: 12px; padding: 4px 12px; margin-bottom: 14px; }
-  .card { width: 200px; margin-right: 16px; }
-  .ttl { font-size: 15px; }
-  .shelves { margin-top: 24px; padding: 0 32px 30px; }
-  .shelf { margin-bottom: 32px; }
-  .shelfhead h2 { font-size: 26px; }
-  .clock { font-size: 28px; }
-  .brandMark { font-size: 27px; letter-spacing: 5px; }
-  .brandText { font-size: 14px; letter-spacing: 5px; }
+  .rail { flex: 0 0 216px; width: 216px; }
+  .sideItem { padding: 12px 20px; }
+  .sideItem .st { font-size: 15px; }
+  .cardela { height: 420px; margin: 24px 34px 0; }
+  .slide .info { left: 48px; bottom: 44px; width: 48%; }
+  .slide h1 { font-size: 50px; }
+  .slide p { font-size: 17px; max-height: 48px; }
+  .card { width: 220px; margin-right: 16px; }
+  .rows { margin-top: 22px; padding: 0 34px 32px; }
+  .shelfhead h2 { font-size: 24px; }
+  .clock { font-size: 26px; }
 }
 
-/* ---- Sin puntero (movil/tablet tactil): el foco por D-pad no aplica y el
-   escalado al tocar se ve raro, asi que se quita ---- */
 @media (hover: none) {
   .card.focused .thumb { transform: none; }
 }
 
-/* ---------------- Aviso ---------------- */
-.toast {
-  display: none; position: fixed; left: 50%; bottom: 40px;
-  transform: translateX(-50%); max-width: 78%;
-  padding: 12px 22px; font-size: 13.5px;
-  color: #ffffff;
-  background: #16233a;
-  background: rgba(31,31,31,.97);
-  border: 1px solid #4aa3ff;  /* respaldo sin var() */
-  border: 1px solid var(--accent);
-  border-radius: 8px; z-index: 60;
+/* Sin animacion si el sistema la pide. */
+@media (prefers-reduced-motion: reduce) {
+  .tally .lamp { animation: none; }
+  .cardelaTrack { transition: none; }
+  .card.focused .thumb { transform: none; }
 }
+
+/* Alias de compatibilidad con nombres anteriores del carrusel. */
+.heroTrack { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; transition: transform .42s cubic-bezier(.2,.7,.25,1); }
+.heroDots { position: absolute; right: 20px; bottom: 16px; z-index: 6; display: flex; align-items: center; }
+.heroDots i { display: block; width: 8px; height: 8px; background: #3d5878; cursor: pointer; }
+.heroDots i + i { margin-left: 6px; }
+.heroDots i.on { width: 24px; background: #5db4ff; }
+.heroEmpty { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #8ba0bd; background: #142338; }

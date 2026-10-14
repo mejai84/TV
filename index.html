@@ -3,64 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#04060a">
-<!-- Los logotipos de iptv-org estan alojados en imgur, que devuelve 403
-     en cuanto la peticion lleva cabecera Referer. El navegador la manda
-     siempre, asi que sin esto ninguna caratula carga. -->
+<meta name="theme-color" content="#060b14">
 <meta name="referrer" content="no-referrer">
 <title>Televisión</title>
-<link rel="stylesheet" href="css/app.css?v=43">
+<link rel="stylesheet" href="css/app.css?v=56">
 </head>
 <body class="tv">
 
-<!-- ================= CATALOGO ================= -->
+<!-- ================= PANTALLA CATÁLOGO ================= -->
 <section id="catalogScreen">
 
-  <header class="topbar">
-    <!-- Sin logotipo: no hay marca. La barra arranca con las pestañas. -->
+  <!-- Banda superior: lo único que se mueve (la luz de tally) + búsqueda permanente -->
+  <header class="band">
+    <button id="btnSearch" class="tally" aria-label="Buscar" tabindex="0">
+      <span class="lamp" aria-hidden="true"></span>
+      <span class="tallyText">En directo</span>
+    </button>
 
-    <nav class="topnav">
-      <button id="tabCatalog" class="active" tabindex="0">Inicio</button>
-      <button id="tabGuide" tabindex="0">Guia</button>
-    </nav>
+    <div class="onAir" aria-live="off" role="status">
+      <span id="onAirList" class="onAirList">Cargando guía...</span>
+    </div>
 
-    <div class="topright">
-      <button id="btnSearch" class="icoBtn" tabindex="0" title="Buscar">&#9906;</button>
-      <button id="btnGuide" class="icoBtn" tabindex="0" title="Guia de programacion">&#9776;</button>
-      <div class="statusIcons" aria-hidden="true">
-        <span class="dot live"></span>
-        <span class="lbl" id="netLabel">EN LINEA</span>
+    <div class="bandRight">
+      <div class="tools">
+        <button id="tabCatalog" class="icon" aria-label="Catalogo" tabindex="0">&#9635;</button>
+        <button id="tabGuide" class="icon" aria-label="Guia de TV" tabindex="0">&#9776;</button>
       </div>
       <div id="clock" class="clock"></div>
+      <button id="langSelect" class="icon" aria-label="Idioma" tabindex="0">ES</button>
     </div>
   </header>
 
-  <!-- Buscador con filtros. Los resultados se van viendo segun se escribe,
-     sin pulsar nada: con 11262 canales no tiene sentido esperar a Enter. -->
-<div id="searchPanel" class="searchPanel">
-  <div class="searchRow">
-    <input id="searchInput" class="search open" type="text"
-           placeholder="Buscar canales&hellip;" autocomplete="off"
-           autocorrect="off" spellcheck="false">
-    <div id="searchCount" class="searchCount"></div>
+  <!-- Buscador: siempre visible, nunca escondido -->
+  <div id="searchPanel" class="searchPanel">
+    <div class="searchRow">
+      <input id="searchInput" class="search" type="text" placeholder="Buscar entre 11.262 canales"
+             autocomplete="off" autocorrect="off" spellcheck="false">
+      <div id="searchCount" class="searchCount"></div>
+    </div>
+    <div id="searchFilters" class="filters"></div>
   </div>
-  <div id="searchFilters" class="filters"></div>
-</div>
 
   <div class="layout">
-    <!-- Columna de categorias (ColumnListAty del cliente original) -->
-    <aside id="categories" class="sidebar"></aside>
+    <aside id="categories" class="rail"></aside>
 
-    <main class="content">
-      <!-- Carrusel de destacados -->
-      <section id="hero" class="hero" tabindex="0"></section>
-      <!-- Estanterias horizontales (ShelveData) -->
-      <div id="shelves" class="shelves" tabindex="0"></div>
+    <main class="canvas">
+      <!-- Cartela destacado: bloque de emision principal -->
+      <section id="hero" class="cardela" tabindex="0"></section>
+
+      <!-- Estanterias de canales -->
+      <div id="shelves" class="rows" tabindex="0"></div>
     </main>
   </div>
 </section>
 
-<!-- ================= GUIA EPG ================= -->
+<!-- ================= GUIA ================= -->
 <section id="guideScreen" style="display:none">
   <div id="epg" class="epg"></div>
 </section>
@@ -74,29 +71,24 @@
       <div id="playerStatus" class="status"></div>
     </div>
     <div id="quality" class="quality"></div>
-    <!-- Son dos acciones distintas y no la misma de dos maneras:
-         Detener corta la emision y deja el reproductor a la vista, para
-         poder volver a darle al play sin salir de la pantalla.
-         Volver cierra el reproductor y regresa a la lista de canales. -->
     <div class="playerActions">
-      <button id="btnStop" class="pbtn danger" tabindex="0">&#9632; Detener</button>
-      <button id="btnBack" class="pbtn" tabindex="0">&#8592; Volver a la lista</button>
+      <button id="btnStop" class="pbtn danger" aria-label="Detener emision" tabindex="0">Detener</button>
+      <button id="btnBack" class="pbtn" aria-label="Volver a la lista" tabindex="0">Volver a la lista</button>
+      <button id="btnPiP" class="pbtn" aria-label "Picture in Picture" tabindex="0">PiP</button>
     </div>
     <div id="playerStopped" class="stoppedMsg" style="display:none">
       <b>Emision detenida</b>
       <span>Pulsa OK para volver a reproducir este canal.</span>
     </div>
-    <p class="hint">&#9664; &#9654; Calidad &middot; OK Reproducir/Pausa &middot; BACK Volver a la lista</p>
+    <p class="hint">&#9664; &#9654; Calidad &middot; OK Reproducir y pausar &middot; BACK Volver a la lista</p>
   </div>
 </section>
 
 <div id="toast" class="toast"></div>
 
-<!--?v=8 fuerza recarga: el cache del navegador de un televisor sobrevive
-     varias sesiones y sigue sirviendo la version anterior de los scripts. -->
-<script src="js/config.js?v=43"></script>
-<script src="js/epg.js?v=30"></script>
-<script src="js/player.js?v=8"></script>
-<script src="js/app.js?v=42"></script>
+<script src="js/config.js?v=56"></script>
+<script src="js/epg.js?v=56"></script>
+<script src="js/player.js?v=56"></script>
+<script src="js/app.js?v=56"></script>
 </body>
 </html>
