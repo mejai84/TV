@@ -782,7 +782,56 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-.moreHint { display: block; margin-bottom: 6px; font-size: 11px; color: #5d7290; }
+.moreHint { display: block; margin: 12px 0 6px; font-size: 12px; color: #8ba0bd; }
+
+/* Los resultados extensos se recorren verticalmente con el mando. */
+.row.verticalResults {
+  display: block;
+  overflow: visible;
+  padding: 2px 0 10px;
+  margin: 0;
+}
+.verticalResults .verticalCard {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-rows: minmax(22px, auto) minmax(18px, auto);
+  column-gap: 14px;
+  width: 100%;
+  max-width: 760px;
+  min-height: 76px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(15, 28, 48, 0.72);
+}
+.verticalResults .verticalCard .thumb {
+  grid-row: 1 / span 2;
+  width: 116px;
+  padding-bottom: 65px;
+}
+.verticalResults .verticalCard .ttl {
+  align-self: end;
+  margin: 0;
+  font-size: 15px;
+}
+.verticalResults .verticalCard .onair {
+  align-self: start;
+  margin: 2px 0 0;
+}
+.verticalResults .verticalCard:hover,
+.verticalResults .verticalCard.focused {
+  border-color: #5db4ff;
+  box-shadow: 0 0 0 2px rgba(93, 180, 255, 0.75), 0 10px 24px rgba(0, 0, 0, 0.38);
+}
+.verticalResults .verticalCard:hover .thumb,
+.verticalResults .verticalCard.focused .thumb {
+  transform: none;
+}
+@media (max-width: 640px) {
+  .verticalResults .verticalCard { grid-template-columns: 96px minmax(0, 1fr); }
+  .verticalResults .verticalCard .thumb { width: 96px; padding-bottom: 54px; }
+}
 
 /* ---------------- Guia ---------------- */
 .epg { position: absolute; top: 62px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }

@@ -787,6 +787,11 @@
     localStorage.setItem('tv_lang', state.lang);
   }
 
+  function isVerticalResults() {
+    return state.groups.length === 1 &&
+      !!(state.query || state.filtro || state.selectedCategory || state.isFavsFilter);
+  }
+
   function renderShelves() {
     if (!state.groups.length) {
       el.shelves.innerHTML = '<div class="epg-empty">Nada que mostrar.<br>' +
@@ -795,6 +800,7 @@
     }
 
     var html = '';
+    var verticalResults = isVerticalResults();
     // Se muestran las 14 estanterias alrededor del foco para no pintar
     // 44 listas de 300 canales cada una en cada repintado.
     var from = Math.max(0, state.shelf - 4);
@@ -805,7 +811,7 @@
       html += '<section class="shelf" data-shelf="' + s + '">' +
                 '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
                 '<em>' + g.items.length + ' canales</em><span class="rule"></span></div>' +
-                '<div class="row" id="row-' + s + '">';
+                '<div class="row' + (verticalResults ? ' verticalResults' : '') + '" id="row-' + s + '">';
 
       // Cada estanteria se dibuja por tramos de 40, no entera: la de "Todos
       // los canales" del indice de iptv-org tiene 11262 y pintarlos todos
@@ -813,10 +819,6 @@
       // con el D-pad, asi que se llega a todos sin pagar el coste al entrar.
       var shown = state.shown[s] || CHUNK;
       var limit = Math.min(g.items.length, shown);
-      if (limit < g.items.length) {
-        html += '<span class="moreHint">' + limit + ' de ' + g.items.length +
-                ' canales · sigue avanzando para ver mas</span>';
-      }
       for (var i = 0; i < limit; i++) {
         var it = g.items[i];
         var live = state.onAir[it.id] || state.onAir[it.tvgId];
@@ -824,7 +826,7 @@
         if (state.onlyLive && !live) continue;
         var focused = (s === state.shelf && i === state.card);
 
-        html += '<div class="card' + (focused ? ' focused' : '') +
+        html += '<div class="card' + (verticalResults ? ' verticalCard' : '') + (focused ? ' focused' : '') +
                   '" data-shelf="' + s + '" data-card="' + i + '" tabindex="0">';
 
         if (it.poster) {
@@ -841,6 +843,10 @@
                 '</div>';
       }
 
+      if (limit < g.items.length) {
+        html += '<span class="moreHint">' + limit + ' de ' + g.items.length +
+                ' canales · pulsa ↓ para cargar más</span>';
+      }
       html += '</div></section>';
     }
     el.shelves.innerHTML = html;
@@ -1513,6 +1519,24 @@ function nextSelectable(from, dir) {
     /* ---- estanterias ---- */
     var g = state.groups[state.shelf];
     if (!g) return false;
+    if (isVerticalResults() && dr) {
+      var visible = Math.min(g.items.length, state.shown[state.shelf] || CHUNK);
+      if (dr > 0) {
+        if (state.card >= visible - 1 && visible < g.items.length) {
+          state.shown[state.shelf] = visible + CHUNK;
+          renderShelves();
+          visible = Math.min(g.items.length, state.shown[state.shelf]);
+        }
+        state.card = Math.min(visible - 1, state.card + 1);
+      } else if (state.card > 0) {
+        state.card -= 1;
+      } else {
+        state.zone = 'hero';
+      }
+      paintFocus();
+      if (state.zone === 'shelf') revealCard();
+      return true;
+    }
     var pintadas = state.shown[state.shelf] || CHUNK;
     var len = Math.min(g.items.length, pintadas);
 

@@ -263,7 +263,9 @@ var Utils = {
  * useProxy:false y solo funcionaran los streams que ya traigan CORS.
  * ------------------------------------------------------------------ */
 var PROXY = {
-  useProxy: true,
+  // Prueba diagnostica: ?proxy=off intenta abrir los streams directamente.
+  // Por defecto se conserva el proxy, necesario para los origenes sin CORS.
+  useProxy: !/(?:[?&])proxy=off(?:&|$)/i.test(window.location.search || ''),
 
   /**
    * Ruta del proxy. Hay dos porque viven en sitios distintos:
