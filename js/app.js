@@ -30,6 +30,9 @@
     return false;
   }
 
+  /** Caratulas que se pintan de golpe en una estanteria. */
+  var CHUNK = 40;
+
   /* ---------------------------------------------------------------- *
    * Categorias de iptv-org: vienen en ingles y agrupadas con ';', asi que
    * se traducen y se les asigna un tema para el fondo de la pantalla.
@@ -138,11 +141,18 @@
     groups: [],            // [{ name, items: [...] }]
     side: [],              // [{ type:'group'|'source'|'guide'|'search', ... }]
     activeSource: '',      // clave de la lista cargada, para marcarla
+    shown: {},           // { shelfIndex: caratulas pintadas hasta ahora }
+    todo: null,          // catalogo completo agrupado y traducido
+    todoBase: 0,
+    indice: null,        // indice de busqueda { n, t, g }
+    filtro: '',          // categoria activa del buscador ('' = todas)
     byId: {},
     onAir: {},
     epgItems: [],
     hero: [],              // [{ item, group }]
     heroAt: 0,
+    stopped: false,       // el canal se detuvo a proposito desde el reproductor
+    playing: null,        // canal que se esta emitiendo, para poder reanudarlo
     query: '',
     screen: 'catalog',
     zone: 'cat',           // 'cat' (lateral) | 'hero' | 'shelf'
@@ -175,9 +185,12 @@
     el.video     = $('video');
     el.title     = $('nowTitle');
     el.quality   = $('quality');
-    el.brand     = $('brand');
+    el.brand     = $('brand') || null;
     el.search    = $('searchInput');
     el.toast     = $('toast');
+    el.panel     = $('searchPanel');
+    el.count     = $('searchCount');
+    el.filters   = $('searchFilters');
 
     // Que lista esta cargada ahora, para marcarla en el lateral.
     state.activeSource = currentSourceKey();
@@ -202,13 +215,15 @@
     bindTabs();
     startClock();
 
+    // Resultados en vivo: se recalcula al escribir, sin pulsar Enter. Con el
+    // indice ya construido, escribir una letra sobre 11262 canales es
+    // instantaneo.
     el.search.addEventListener('input', function () {
-      state.query = Utils.trim(el.search.value).toLowerCase();
-      // Al buscar se ignoran las categorias: se muestra todo en una sola
-      // estanteria, que es lo unico manejable con el mando.
+      state.query = Utils.trim(el.search.value);
       state.zone = 'shelf';
+      state.card = 0;
       buildGroups();
-      render();
+      updateSearchUi();
     });
 
     el.search.addEventListener('keydown', function (e) {
@@ -217,6 +232,8 @@
 
     $('btnSearch').addEventListener('click', function () { openSearch(); });
     $('btnGuide').addEventListener('click', function () { showScreen('guide'); });
+    $('btnStop').addEventListener('click', function () { stopPlayback(); });
+    $('btnBack').addEventListener('click', function () { goBackToList(); });
     bindSwipe();
 
     applyBrand();
@@ -237,20 +254,17 @@
   }
 
   /**
-   * CONFIG.brand.name personalize el logotipo. Mantiene el formato de la
-   * marca de la app de referencia: primera palabra en blanco y grande,
-   * el resto en rojo y pequeno debajo.
+   * Logotipo opcional. Sin CONFIG.brand.name no se pinta nada: la
+   * cabecera arranca directamente con las pestañas.
    */
   function applyBrand() {
     var name = (CONFIG.brand && CONFIG.brand.name) || '';
-    if (!name) return;
-    var parts = Utils.trim(name).split(/\s+/);
-    var head = parts[0].toUpperCase();
-    var tail = parts.slice(1).join(' ').toUpperCase() || 'TV';
+    var mark = $('brand'), markTop = $('brandMark'), markSub = $('brandText');
+    if (!name || !mark) return;
 
-    $('brandMark').textContent = head;
-    $('brandText').innerHTML = Utils.esc(tail) +
-      (tail ? '<em>&nbsp;TV</em>' : '');
+    var parts = Utils.trim(name).split(/\s+/);
+    markTop.textContent = parts[0].toUpperCase();
+    markSub.innerHTML = Utils.esc(parts.slice(1).join(' ').toUpperCase());
   }
 
   function loadCatalog() {
@@ -289,42 +303,96 @@
     // cambiar despues.
     applyTheme('all');
 
-    if (state.query) {
-      var hits = [];
-      for (var i = 0; i < state.items.length; i++) {
-        if (String(state.items[i].title).toLowerCase().indexOf(state.query) > -1) hits.push(state.items[i]);
+    // El catalogo completo se monta una vez y se reutiliza: antes se
+    // reconstruia en cada pulsacion de tecla al buscar, y con 11262
+    // canales eso hacia que el buscador se trabara.
+    if (!state.todo || state.todoBase !== state.items.length) {
+      var mapa = {}, orden = [];
+      for (var j = 0; j < state.items.length; j++) {
+        var it = state.items[j];
+        var g = it.group || 'Otros';
+        if (!Object.prototype.hasOwnProperty.call(mapa, g)) { mapa[g] = []; orden.push(g); }
+        mapa[g].push(it);
       }
-      state.groups = [{ name: 'Resultados (' + hits.length + ')', items: hits, artificial: true }];
+
+      // Se traduce la categoria y se le asigna un tema antes de pintar nada:
+      // los nombres de iptv-org vienen en ingles ('Sports', 'News') y salen
+      // tal cual si no se pasan por aqui.
+      var gs = [];
+      for (var k = 0; k < orden.length; k++) {
+        var par = categoriaEs(orden[k]);
+        gs.push({ name: par[0], theme: par[1], items: mapa[orden[k]] });
+      }
+
+      // Orden alfabetico: el lateral queda ordenado y es predecible.
+      gs.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+
+      // "Todos" primero, y una estanteria deccion destacada arriba.
+      gs.unshift({ name: 'Todos los canales', theme: 'all', items: state.items.slice() });
+      state.todo = gs;
+      state.todoBase = state.items.length;
+      state.indice = null;
+    }
+
+    state.shown = {};
+
+    if (state.query || state.filtro) {
+      var hits = buscar(state.query, state.filtro);
+      var tema = state.filtro ? (temaDeFiltro(state.filtro) || 'all') : 'all';
+      state.groups = [{ name: 'Resultados: ' + hits.length, theme: tema,
+                        items: hits, artificial: true }];
       buildSide();
+      applyTheme(tema);
+      render();
       return;
     }
 
-    var map = {}, order = [];
-    for (var j = 0; j < state.items.length; j++) {
-      var it = state.items[j];
-      var g = it.group || 'Otros';
-      if (!Object.prototype.hasOwnProperty.call(map, g)) { map[g] = []; order.push(g); }
-      map[g].push(it);
-    }
-
-    // Se traduce la categoria y se le asigna un tema antes de pintar nada:
-    // los nombres de iptv-org vienen en ingles ('Sports', 'News') y salen
-    // tal cual si no se pasan por aqui.
-    var groups = [];
-    for (var k = 0; k < order.length; k++) {
-      var par = categoriaEs(order[k]);
-      groups.push({ name: par[0], theme: par[1], items: map[order[k]] });
-    }
-
-    // Orden alfabetico: el lateral queda ordenado y es predecible.
-    groups.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
-
-    // "Todos" primero, y una estanteria deccion destacada arriba.
-    groups.unshift({ name: 'Todos los canales', theme: 'all', items: state.items.slice() });
-
-    state.groups = groups;
+    state.groups = state.todo;
     buildSide();
     buildHero();
+    renderFilters();
+    updateSearchUi();
+  }
+
+  /**
+   * Busca sobre TODO el catalogo, no solo dentro del grupo abierto, y con
+   * el filtro de categoria si hay uno.
+   *
+   * Antes comparaba el titulo contra el grupo visible y en pantalla
+   * cabian 40 resultados, asi que con la lista de iptv-org escribir "esp"
+   * no encontraba nada util.
+   */
+  function buscar(texto, filtro) {
+    // Indice una vez: titulo normalizado y categoria de cada canal.
+    if (!state.indice) {
+      state.indice = [];
+      for (var i = 0; i < state.items.length; i++) {
+        var par = categoriaEs(state.items[i].group || 'Otros');
+        state.indice.push({
+          n: Utils.normTitle(state.items[i].title),
+          t: String(state.items[i].title),
+          g: par[0]
+        });
+      }
+    }
+
+    var qn = Utils.normTitle(texto);
+    var q = Utils.trim(texto).toLowerCase();
+    var out = [];
+    for (var k = 0; k < state.indice.length; k++) {
+      var e = state.indice[k];
+      if (filtro && e.g !== filtro) continue;
+      if (qn && e.n.indexOf(qn) === -1 && e.t.toLowerCase().indexOf(q) === -1) continue;
+      out.push(state.items[k]);
+    }
+    return out;
+  }
+
+  function temaDeFiltro(nombre) {
+    for (var i = 0; i < state.todo.length; i++) {
+      if (state.todo[i].name === nombre) return state.todo[i].theme;
+    }
+    return null;
   }
 
   /**
@@ -548,6 +616,52 @@
     }, false);
   }
 
+  /* ---------------------------------------------------------------- *
+   * Buscador: filtros por categoria y contador de resultados
+   * ---------------------------------------------------------------- */
+  function renderFilters() {
+    if (!state.todo) { el.filters.innerHTML = ''; return; }
+
+    // Solo las categorias con contenido; "Todos los canales" no aporta
+    // como filtro porque es lo mismo que no filtrar.
+    var cats = [], i;
+    for (i = 1; i < state.todo.length; i++) cats.push(state.todo[i].name);
+    cats.sort(function (a, b) { return a < b ? -1 : (a > b ? 1 : 0); });
+
+    var html = '<button class="chipFilter' + (state.filtro ? '' : ' on') +
+               '" data-f="" tabindex="0">Todas</button>';
+    for (i = 0; i < cats.length; i++) {
+      html += '<button class="chipFilter' + (state.filtro === cats[i] ? ' on' : '') +
+              '" data-f="' + Utils.esc(cats[i]) + '" tabindex="0">' +
+              Utils.esc(cats[i]) + '</button>';
+    }
+    el.filters.innerHTML = html;
+
+    var chips = el.filters.querySelectorAll('.chipFilter');
+    for (var j = 0; j < chips.length; j++) {
+      (function (n) {
+        n.addEventListener('click', function () {
+          state.filtro = n.getAttribute('data-f');
+          state.card = 0;
+          buildGroups();
+          updateSearchUi();
+          renderFilters();
+        });
+      })(chips[j]);
+    }
+  }
+
+  function updateSearchUi() {
+    var buscando = !!(state.query || state.filtro);
+    el.panel.className = buscando ? 'searchPanel on' : 'searchPanel';
+
+    if (!buscando) { el.count.textContent = ''; return; }
+
+    var n = state.groups.length ? state.groups[0].items.length : 0;
+    el.count.textContent = n + (n === 1 ? ' canal' : ' canales') +
+      ' de ' + state.items.length;
+  }
+
   function renderShelves() {
     if (!state.groups.length) {
       el.shelves.innerHTML = '<div class="epg-empty">Nada que mostrar.<br>' +
@@ -568,7 +682,16 @@
                 '<em>' + g.items.length + ' canales</em><span class="rule"></span></div>' +
                 '<div class="row" id="row-' + s + '">';
 
-      var limit = Math.min(g.items.length, 40);
+      // Cada estanteria se dibuja por tramos de 40, no entera: la de "Todos
+      // los canales" del indice de iptv-org tiene 11262 y pintarlos todos
+      // de golpe deja el navegador sin aire. El tramo crece segun se avanza
+      // con el D-pad, asi que se llega a todos sin pagar el coste al entrar.
+      var shown = state.shown[s] || CHUNK;
+      var limit = Math.min(g.items.length, shown);
+      if (limit < g.items.length) {
+        html += '<span class="moreHint">' + limit + ' de ' + g.items.length +
+                ' canales · sigue avanzando para ver mas</span>';
+      }
       for (var i = 0; i < limit; i++) {
         var it = g.items[i];
         var live = state.onAir[it.id] || state.onAir[it.tvgId];
@@ -713,6 +836,10 @@
   function playItem(item) {
     el.title.textContent = item.title || '';
     el.quality.innerHTML = '';
+    state.playing = item;
+    state.stopped = false;
+    var aviso = $('playerStopped');
+    if (aviso) aviso.style.display = 'none';
     showScreen('player');
     state.adapter.resolve(item).then(function (streams) {
       if (!streams || !streams.length) {
@@ -747,6 +874,44 @@
         });
       })(bs[j]);
     }
+  }
+
+  /**
+   * Detener: corta la emision pero se queda en la pantalla del
+   * reproductor, para poder volver a darle al play sin salir.
+   *
+   * player.stop(true) es lo que corta el HLS de verdad. Si solo se
+   * pausara el <video>, hls.js seguiria pidiendo segmentos en segundo
+   * plano y el canal continuaria descargando aunque no se viera nada.
+   */
+  function stopPlayback() {
+    player.stop(true);
+    el.video.pause();
+    el.video.removeAttribute('src');
+    try { el.video.load(); } catch (e) { /* navegadores viejos */ }
+
+    state.stopped = true;
+    var aviso = $('playerStopped');
+    if (aviso) aviso.style.display = 'block';
+    el.status.textContent = 'Emision detenida';
+    toast('Emision detenida');
+  }
+
+  /** Volver: cierra el reproductor y regresa a la lista de canales. */
+  function goBackToList() {
+    if (state.stopped) {
+      // Ya estaba parado: solo hay que cerrar la pantalla.
+      state.stopped = false;
+      var aviso = $('playerStopped');
+      if (aviso) aviso.style.display = 'none';
+      showScreen('catalog');
+      return;
+    }
+    player.stop(true);
+    el.video.pause();
+    el.video.removeAttribute('src');
+    try { el.video.load(); } catch (e) { /* navegadores viejos */ }
+    showScreen('catalog');
   }
 
   function showScreen(name) {
@@ -804,16 +969,28 @@
         } else if (state.screen === 'guide') {
           guide.activate();
         } else {
-          var p = el.video.play(); if (p && p.catch) p.catch(function () {});
+          // En el reproductor: si se detuvo antes, OK vuelve a emitir el
+          // mismo canal en vez de solo reanudar un video que ya no existe.
+          if (state.stopped && state.playing) {
+            var aviso = $('playerStopped');
+            if (aviso) aviso.style.display = 'none';
+            state.stopped = false;
+            playItem(state.playing);
+          } else {
+            var p = el.video.play(); if (p && p.catch) p.catch(function () {});
+          }
         }
         e.preventDefault(); return;
       }
 
       if (isKey(e, KEY.BACK)) {
-        if (state.screen === 'player') { showScreen('catalog'); }
+        // BACK en el reproductor es "salir": corta la emision y regresa a
+        // la lista, que es distinto del boton Detener.
+        if (state.screen === 'player') { goBackToList(); }
         else if (state.screen === 'guide') { showScreen('catalog'); }
         else if (el.search === document.activeElement || el.search.value) {
-          el.search.value = ''; state.query = ''; closeSearch(); buildGroups(); render();
+          el.search.value = ''; state.query = '';
+          closeSearch(); buildGroups(); updateSearchUi(); render();
         }
         else if (state.zone === 'shelf') { state.zone = 'hero'; paintFocus(); }
         else if (state.zone === 'hero') { state.zone = 'cat'; paintFocus(); }
@@ -891,10 +1068,22 @@ function nextSelectable(from, dir) {
     /* ---- estanterias ---- */
     var g = state.groups[state.shelf];
     if (!g) return false;
-    var len = Math.min(g.items.length, 40);
+    var pintadas = state.shown[state.shelf] || CHUNK;
+    var len = Math.min(g.items.length, pintadas);
 
     if (dc) {
-      if (dc > 0) state.card = Math.min(len - 1, state.card + 1);
+      if (dc > 0) {
+        if (state.card >= len - 1 && len < g.items.length) {
+          // Se ha llegado al final de lo pintado: se pinta otro tramo y se
+          // sigue. Asi el canal 9000 se alcanza igual que el primero.
+          state.shown[state.shelf] = len + CHUNK;
+          renderShelves();
+        }
+        // Sin el "|| CHUNK" el min() recibiria undefined y devolveria NaN,
+        // dejando el foco roto: la flecha derecha dejaba de funcionar.
+        var tope = Math.min(g.items.length, state.shown[state.shelf] || CHUNK);
+        state.card = Math.min(tope - 1, state.card + 1);
+      }
       else if (state.card > 0) state.card -= 1;
       else { state.zone = 'hero'; }        // izquierda en el primer elemento
     }
@@ -905,7 +1094,9 @@ function nextSelectable(from, dir) {
       if (target < 0) { state.zone = 'hero'; state.card = 0; }
       else if (target < state.groups.length) {
         state.shelf = target;
-        state.card = Math.min(state.card, Math.max(0, Math.min(state.groups[target].items.length, 40) - 1));
+        var tope = Math.min(state.groups[target].items.length,
+                            state.shown[target] || CHUNK);
+        state.card = Math.min(state.card, Math.max(0, tope - 1));
         applyTheme(state.groups[target].theme);
         // Solo se repinta si la estanteria enfocada entra o sale de la ventana
         // de 9 filas que se pinta alrededor del foco.

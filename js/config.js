@@ -64,9 +64,11 @@ var CONFIG = {
     base: 'https://iptv-org.github.io/iptv'
   },
 
-  // Marca visible en la interfaz (multi-tenant, estilo portal).
+  // Sin marca: la interfaz no lleva logotipo ni nombre propio.
+  // Si algun dia se quiere una marca, poner aqui el nombre y poner el
+  // bloque .brand en la cabecera.
   brand: {
-    name: 'Xuper Hydra',
+    name: '',
     logo: ''
   },
 
@@ -263,11 +265,25 @@ var Utils = {
 var PROXY = {
   useProxy: true,
 
-  /** Envuelve una URL remota para que pase por el proxy local. */
+  /**
+   * Ruta del proxy. Hay dos porque viven en sitios distintos:
+   *   '/proxy/stream?u=' -> serve.py, en local
+   *   '/api/stream?u='  -> api/stream.js, en Vercel
+   * Se detecta solo: si la pagina se sirve desde Vercel (o desde cualquier
+   * despliegue donde no exista serve.py) se usa la funcion.
+   */
+  path: function () {
+    var host = '';
+    try { host = window.location.hostname || ''; } catch (e) { /* file:// */ }
+    var enVercel = /\.vercel\.app$/.test(host) || window.__FORCE_API_PROXY__;
+    return enVercel ? '/api/stream?u=' : '/proxy/stream?u=';
+  },
+
+  /** Envuelve una URL remota para que pase por el proxy. */
   wrap: function (url) {
     if (!this.useProxy) return url;
     if (url && url.charAt(0) === '/') return url;   // ya proxificada
-    return '/proxy/stream?u=' + encodeURIComponent(url);
+    return PROXY.path() + encodeURIComponent(url);
   }
 };
 

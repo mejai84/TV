@@ -8,8 +8,8 @@
      en cuanto la peticion lleva cabecera Referer. El navegador la manda
      siempre, asi que sin esto ninguna caratula carga. -->
 <meta name="referrer" content="no-referrer">
-<title>Xuper TV</title>
-<link rel="stylesheet" href="css/app.css?v=34">
+<title>Televisión</title>
+<link rel="stylesheet" href="css/app.css?v=43">
 </head>
 <body class="tv">
 
@@ -17,12 +17,7 @@
 <section id="catalogScreen">
 
   <header class="topbar">
-    <!-- Marca en dos lineas como en la app de referencia: XUPER en blanco,
-         HYDRA en rojo debajo (HomeActivity.kt NavSidebar). -->
-    <div id="brand" class="brand">
-      <span class="brandMark" id="brandMark">XUPER</span>
-      <span class="brandText" id="brandText">HYDRA<em>TV</em></span>
-    </div>
+    <!-- Sin logotipo: no hay marca. La barra arranca con las pestañas. -->
 
     <nav class="topnav">
       <button id="tabCatalog" class="active" tabindex="0">Inicio</button>
@@ -40,8 +35,17 @@
     </div>
   </header>
 
-  <input id="searchInput" class="search" type="text" placeholder="Buscar canales&hellip;"
-         autocomplete="off" autocorrect="off" spellcheck="false">
+  <!-- Buscador con filtros. Los resultados se van viendo segun se escribe,
+     sin pulsar nada: con 11262 canales no tiene sentido esperar a Enter. -->
+<div id="searchPanel" class="searchPanel">
+  <div class="searchRow">
+    <input id="searchInput" class="search open" type="text"
+           placeholder="Buscar canales&hellip;" autocomplete="off"
+           autocorrect="off" spellcheck="false">
+    <div id="searchCount" class="searchCount"></div>
+  </div>
+  <div id="searchFilters" class="filters"></div>
+</div>
 
   <div class="layout">
     <!-- Columna de categorias (ColumnListAty del cliente original) -->
@@ -70,7 +74,19 @@
       <div id="playerStatus" class="status"></div>
     </div>
     <div id="quality" class="quality"></div>
-    <p class="hint">&#9664; &#9654; Calidad &middot; OK Reproducir/Pausa &middot; BACK Volver</p>
+    <!-- Son dos acciones distintas y no la misma de dos maneras:
+         Detener corta la emision y deja el reproductor a la vista, para
+         poder volver a darle al play sin salir de la pantalla.
+         Volver cierra el reproductor y regresa a la lista de canales. -->
+    <div class="playerActions">
+      <button id="btnStop" class="pbtn danger" tabindex="0">&#9632; Detener</button>
+      <button id="btnBack" class="pbtn" tabindex="0">&#8592; Volver a la lista</button>
+    </div>
+    <div id="playerStopped" class="stoppedMsg" style="display:none">
+      <b>Emision detenida</b>
+      <span>Pulsa OK para volver a reproducir este canal.</span>
+    </div>
+    <p class="hint">&#9664; &#9654; Calidad &middot; OK Reproducir/Pausa &middot; BACK Volver a la lista</p>
   </div>
 </section>
 
@@ -78,9 +94,9 @@
 
 <!--?v=8 fuerza recarga: el cache del navegador de un televisor sobrevive
      varias sesiones y sigue sirviendo la version anterior de los scripts. -->
-<script src="js/config.js?v=36"></script>
+<script src="js/config.js?v=43"></script>
 <script src="js/epg.js?v=30"></script>
 <script src="js/player.js?v=8"></script>
-<script src="js/app.js?v=35"></script>
+<script src="js/app.js?v=42"></script>
 </body>
 </html>

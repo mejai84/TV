@@ -1,8 +1,8 @@
 /* ============================================================
-   Xuper TV — tema para 1280x720, calco visual del cliente original
+   Cliente de television — tema para 1280x720
    ============================================================
    Estructura pensada para televisor:
-     · barra superior con marca, pestañas y reloj
+     · barra superior con pestañas, búsqueda y reloj
      · columna lateral con icono + categoria   (ColumnListAty)
      · carrusel grande de destacados            (ShelveData / banner)
      · filas horizontales de caratulas
@@ -187,7 +187,7 @@ body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
   background: var(--line);
 }
 
-/* Marca: XUPER en negro encima, HYDRA en rojo debajo (HomeActivity.kt) */
+/* Logotipo opcional: sin CONFIG.brand.name no se pinta nada */
 .brand {
   display: flex; flex-direction: column; align-items: center;
   white-space: nowrap;
@@ -271,22 +271,94 @@ body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
   text-align: right;
 }
 
-/* ---------------- Buscador ---------------- */
+/* ---------------- Buscador ----------------
+   Es un panel fijo bajo la cabecera, no un campo flotante: necesita sitio
+   para los filtros de categoria y para el contador de resultados. */
+.searchPanel {
+  display: none;
+  position: absolute; top: 74px; left: 0; right: 0; z-index: 45;
+  padding: 14px 34px 16px;
+  background: rgba(8,13,20,.97);
+  border-bottom: 1px solid #1d2c42;
+}
+.searchPanel.on { display: block; }
+
+.searchRow { display: flex; align-items: center; }
+.searchRow > .search { flex: 1 1 auto; }
+
 .search {
-  position: absolute; top: 82px; right: 34px; z-index: 40;
-  width: 0; opacity: 0;
-  height: 40px; padding: 0 0 0 16px;
-  font-size: 14px; color: #ffffff;  /* respaldo sin var() */
-  font-size: 14px; color: var(--text);
+  height: 42px; padding: 0 14px;
+  font-size: 15px; color: #ffffff;  /* respaldo sin var() */
+  font-size: 15px; color: var(--text);
   background: #16233a;
   background: var(--panel2);
   border: 1px solid #27384f; border-radius: 8px;  /* respaldo sin var() */
   border: 1px solid var(--line2); border-radius: 8px;
   outline: none;
-  transition: width .18s ease, opacity .18s ease, padding .18s ease;
+  min-width: 0;
 }
-.search.open { width: 300px; opacity: 1; padding-right: 16px; }
+.search:focus { border-color: #4aa3ff; }
 .search::placeholder { color: #64768c; }
+
+.searchCount {
+  flex: 0 0 auto; margin-left: 14px;
+  font-size: 13px; font-weight: 600; color: #8fd0ff;
+  white-space: nowrap;
+}
+
+/* Filtros por categoria */
+.filters {
+  margin-top: 12px;
+  max-height: 92px; overflow-y: auto;
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.chipFilter {
+  display: inline-block; margin: 0 8px 8px 0;
+  padding: 7px 14px;
+  font-size: 13px; font-weight: 600; color: #b6c6dc;
+  background: #101a28;
+  border: 1px solid #1d2c42; border-radius: 999px;
+  cursor: pointer;
+}
+.chipFilter:hover { color: #fff; border-color: #2b405c; }
+.chipFilter.on {
+  color: #04121d;
+  background: #4aa3ff;
+  border-color: #8fd0ff;
+}
+
+/* Aviso de que la estanteria se esta ampliando al avanzar */
+.moreHint {
+  display: block; margin-bottom: 6px;
+  font-size: 11px; color: #64768c;
+}
+
+/* Botones del reproductor */
+.playerActions { margin-top: 14px; }
+.pbtn {
+  display: inline-block; margin-right: 10px; padding: 9px 18px;
+  font-size: 14px; font-weight: 600; color: #ffffff;
+  background: #1d2c42;
+  border: 1px solid #2b405c; border-radius: 6px;
+  cursor: pointer;
+}
+.pbtn:hover { background: #27384f; }
+.pbtn:focus {
+  color: #04121d; outline: none;
+  background: #4aa3ff;
+  border-color: #8fd0ff;
+}
+.pbtn.danger { border-color: #7a2b32; color: #ffb3b8; }
+.pbtn.danger:focus { color: #ffffff; background: #c5303f; border-color: #ff8089; }
+
+.stoppedMsg {
+  margin-top: 14px; padding: 12px 16px;
+  font-size: 14px; color: #b6c6dc;
+  background: #101a28;
+  border: 1px solid #1d2c42; border-radius: 8px;
+}
+.stoppedMsg b { display: block; color: #ffb3b8; margin-bottom: 4px; }
 
 /* ---------------- Cuerpo: lateral + contenido ---------------- */
 /* La pantalla es una columna de altura completa: cabecera fija arriba y
@@ -1010,8 +1082,9 @@ body[class*="tema-"] .sidebar { background-color: rgba(10,16,26,.92); }
   .topright > * + * { margin-left: 10px; }
   .icoBtn { width: 34px; height: 34px; font-size: 17px; }
   .clock { font-size: 16px; }
-  .search { top: 64px; right: 12px; }
-  .search.open { width: calc(100% - 24px); }
+  .searchPanel { top: 58px; padding: 10px 12px 12px; }
+  .searchCount { font-size: 12px; margin-left: 10px; }
+  .chipFilter { font-size: 12px; padding: 6px 11px; }
 
   .sidebar { padding: 9px 12px; }
   .sideItem { padding: 7px 12px; }
