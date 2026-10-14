@@ -6,26 +6,43 @@
 <meta name="theme-color" content="#060b14">
 <meta name="referrer" content="no-referrer">
 <title>Televisión</title>
-<link rel="stylesheet" href="css/app.css?v=56">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css?v=57">
 </head>
 <body class="tv">
 
 <!-- ================= PANTALLA CATÁLOGO ================= -->
 <section id="catalogScreen">
 
-  <!-- Banda superior: lo único que se mueve (la luz de tally) + búsqueda permanente -->
+  <!-- Banda superior: selector de categorías, favoritos, luz de emisión, herramientas -->
   <header class="band">
+    <button id="btnToggleCategories" class="btnBandCategories" aria-label="Categorías" tabindex="0">
+      <span class="catBandIcon" aria-hidden="true">&#9776;</span>
+      <span class="catBandText">Categorías</span>
+      <span id="catBadge" class="catBadge">Todas</span>
+    </button>
+
+    <button id="btnHeaderFavs" class="btnBandFavs" aria-label="Mis Favoritos" title="Ver canales favoritos" tabindex="0">
+      <span class="favBandIcon" aria-hidden="true">&#9733;</span>
+      <span class="favBandText">Favoritos</span>
+      <span id="favCountBadge" class="favBadge">0</span>
+    </button>
+
     <button id="btnSearch" class="tally" aria-label="Buscar" tabindex="0">
       <span class="lamp" aria-hidden="true"></span>
-      <span class="tallyText">En directo</span>
+      <span id="tallyText" class="tallyText">En directo</span>
     </button>
 
     <div class="onAir" aria-live="off" role="status">
-      <span id="onAirList" class="onAirList">Cargando guía...</span>
+      <span id="onAirList" class="onAirList">Catálogo de televisión</span>
     </div>
 
     <div class="bandRight">
       <div class="tools">
+        <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar País o Lista" title="Cambiar País o Región" tabindex="0">&#127760;</button>
+        <button id="btnOpenSearch" class="icon" aria-label="Buscar canales" title="Buscar" tabindex="0">&#128269;</button>
         <button id="tabCatalog" class="icon" aria-label="Catalogo" tabindex="0">&#9635;</button>
         <button id="tabGuide" class="icon" aria-label="Guia de TV" tabindex="0">&#9776;</button>
       </div>
@@ -34,20 +51,47 @@
     </div>
   </header>
 
-  <!-- Buscador: siempre visible, nunca escondido -->
+  <!-- Buscador desplegable -->
   <div id="searchPanel" class="searchPanel">
     <div class="searchRow">
-      <input id="searchInput" class="search" type="text" placeholder="Buscar entre 11.262 canales"
+      <input id="searchInput" class="search" type="text" placeholder="Buscar canales..."
              autocomplete="off" autocorrect="off" spellcheck="false">
       <div id="searchCount" class="searchCount"></div>
+      <button id="btnCloseSearch" class="searchCloseBtn" aria-label="Cerrar búsqueda" tabindex="0">&times;</button>
     </div>
     <div id="searchFilters" class="filters"></div>
   </div>
 
+  <!-- Fondo oscuro al abrir el panel de categorías -->
+  <div id="categoriesBackdrop" class="drawerBackdrop"></div>
+
   <div class="layout">
-    <aside id="categories" class="rail"></aside>
+    <!-- Panel lateral de categorías oculto por defecto (drawer) -->
+    <aside id="categories" class="rail">
+      <div class="drawerHeader">
+        <div class="drawerHeading">
+          <span class="drawerIcon" aria-hidden="true">&#9776;</span>
+          <h3>Categorías</h3>
+        </div>
+        <button id="btnCloseCategories" class="drawerCloseBtn" aria-label="Cerrar categorías" tabindex="0">&times;</button>
+      </div>
+      <div id="categoriesList" class="railContent"></div>
+    </aside>
 
     <main class="canvas">
+      <!-- Barra de categoría activa cuando se filtra por una categoría -->
+      <div id="activeCategoryBanner" class="activeCategoryBanner" style="display:none">
+        <div class="catBannerInfo">
+          <span class="catBannerTag">Categoría activa</span>
+          <h2 id="catBannerTitle" class="catBannerTitle">Todas</h2>
+          <span id="catBannerCount" class="catBannerCount">0 canales</span>
+        </div>
+        <div class="catBannerActions">
+          <button id="btnBannerChangeCat" class="catBannerBtn" tabindex="0">&#9776; Cambiar categoría</button>
+          <button id="btnBannerClearCat" class="catBannerBtn catBannerBtnSecondary" tabindex="0">&times; Ver todos los canales</button>
+        </div>
+      </div>
+
       <!-- Cartela destacado: bloque de emision principal -->
       <section id="hero" class="cardela" tabindex="0"></section>
 
@@ -72,9 +116,50 @@
     </div>
     <div id="quality" class="quality"></div>
     <div class="playerActions">
-      <button id="btnStop" class="pbtn danger" aria-label="Detener emision" tabindex="0">Detener</button>
-      <button id="btnBack" class="pbtn" aria-label="Volver a la lista" tabindex="0">Volver a la lista</button>
-      <button id="btnPiP" class="pbtn" aria-label "Picture in Picture" tabindex="0">PiP</button>
+      <button id="btnBack" class="pbtn pbtn-back" aria-label="Volver a canales" title="Volver a canales" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9664;</span>
+        <span class="pbtnText">Volver</span>
+      </button>
+
+      <button id="btnPrevChannel" class="pbtn pbtn-nav" aria-label="Canal anterior" title="Canal anterior" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9198;</span>
+        <span class="pbtnText">Anterior</span>
+      </button>
+
+      <button id="btnStop" class="pbtn pbtn-danger" aria-label="Detener emisión" title="Detener emisión" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9632;</span>
+        <span class="pbtnText">Detener</span>
+      </button>
+
+      <button id="btnNextChannel" class="pbtn pbtn-nav" aria-label="Canal siguiente" title="Canal siguiente" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9197;</span>
+        <span class="pbtnText">Siguiente</span>
+      </button>
+
+      <button id="btnFav" class="pbtn pbtn-fav" aria-label="Añadir a favoritos" title="Favorito" tabindex="0">
+        <span id="favPlayerIcon" class="pbtnIcon" aria-hidden="true">&#9734;</span>
+        <span id="favPlayerText" class="pbtnText">Favorito</span>
+      </button>
+
+      <button id="btnReload" class="pbtn pbtn-reload" aria-label="Recargar emisión" title="Recargar emisión" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#128259;</span>
+        <span class="pbtnText">Recargar</span>
+      </button>
+
+      <button id="btnMute" class="pbtn pbtn-mute" aria-label="Silenciar sonido" title="Sonido" tabindex="0">
+        <span id="mutePlayerIcon" class="pbtnIcon" aria-hidden="true">&#128266;</span>
+        <span id="mutePlayerText" class="pbtnText">Sonido</span>
+      </button>
+
+      <button id="btnPiP" class="pbtn pbtn-pip" aria-label="Picture in Picture" title="Ventana flotante" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9635;</span>
+        <span class="pbtnText">PiP</span>
+      </button>
+
+      <button id="btnFullscreen" class="pbtn pbtn-fs" aria-label="Pantalla completa" title="Pantalla completa" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9974;</span>
+        <span class="pbtnText">Completa</span>
+      </button>
     </div>
     <div id="playerStopped" class="stoppedMsg" style="display:none">
       <b>Emision detenida</b>
