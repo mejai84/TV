@@ -47,7 +47,7 @@ var CONFIG = {
 
   // Marca visible en la interfaz (multi-tenant, estilo portal).
   brand: {
-    name: 'Xuper',
+    name: 'Xuper Hydra',
     logo: ''
   },
 

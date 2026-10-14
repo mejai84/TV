@@ -13,39 +13,43 @@
    ============================================================ */
 
 :root {
-  --bg:        #04060a;
-  --bg2:       #0a0f18;
-  --panel:     #10161f;
-  --line:      #1c2431;
-  --text:      #eef3fa;
-  --dim:       #93a1b4;
-  --dim2:      #64718694;
-  --accent:    #35a7ff;
-  --accent2:   #5fe4ff;
-  --live:      #ff2d46;
-  --radius:    10px;
+  /* Paleta fria: azules profundos de fondo, azul claro de acento, grises
+     para el texto y un rojo reservado a "en vivo" y a los errores. */
+  --bg:        #070c14;
+  --bg2:       #0c1420;
+  --panel:     #0f1927;
+  --panel2:    #16233a;
+  --line:      #1d2c42;
+  --line2:     #27384f;
+  --text:      #e8eef8;
+  --dim:       #94a6bd;
+  --dim2:      #64768c;
+  --accent:    #4aa3ff;
+  --accent2:   #8fd0ff;
+  --accentPre: #2b6fc4;
+  --live:      #e5484d;
+  --success:   #35c98a;
+  --radius:    8px;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0; padding: 0; height: 100%;
-  color: #eef3fa;  /* respaldo sin var() */
+  color: #ffffff;  /* respaldo sin var() */
   color: var(--text);
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
   cursor: default;
 }
 
-/* Halo de fondo: evita el negro plano, da profundidad como en el launcher */
+/* Fondo negro plano como la app de referencia: alli no hay halo de color,
+   solo superficies #070c14 contra caratulas y barras. */
 body.tv {
-  background:
-    radial-gradient(1200px 520px at 22% -8%, rgba(53,167,255,.16), transparent 62%),
-    radial-gradient(900px 620px at 92% 8%, rgba(120,70,255,.12), transparent 60%),
-    linear-gradient(180deg, #060a11 0%, #04060a 55%, #000 100%);
-  background-attachment: fixed;
+  background: #070c14;
+  background: var(--bg);
 }
 
 /* ---------------- Barra superior ----------------
@@ -60,61 +64,50 @@ body.tv {
 }
 .topbar > * + * { margin-left: 26px; }
 
-.topbar::after {                       /* filete inferior luminoso */
+.topbar::after {                       /* filete inferior */
   content: "";
   position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(53,167,255,.55) 18%, rgba(95,228,255,.15) 55%, transparent);
+  background: #1d2c42;
+  background: var(--line);
 }
 
+/* Marca: XUPER en negro encima, HYDRA en rojo debajo (HomeActivity.kt) */
 .brand {
-  display: flex; align-items: center;
+  display: flex; flex-direction: column; align-items: center;
   white-space: nowrap;
 }
-.brandMark + .brandText { margin-left: 10px; }
 .brandMark {
-  display: inline-block;
-  width: 34px; height: 34px; line-height: 34px;
-  text-align: center;
-  font-size: 20px; font-weight: 800; font-style: italic;
-  color: #06121c;
-  background: linear-gradient(140deg, #e9f6ff, #5fe4ff 45%, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(140deg, #e9f6ff, var(--accent2) 45%, var(--accent));
-  border-radius: 9px 3px 9px 3px;
-  box-shadow: 0 0 16px rgba(53,167,255,.55);
-  text-shadow: none;
+  display: block;
+  font-size: 21px; font-weight: 900; letter-spacing: 4px;
+  line-height: 1;
+  color: #ffffff;
 }
 .brandText {
-  font-size: 21px; font-weight: 800; letter-spacing: 2.4px;
-  color: #f2f7ff;
+  font-size: 11px; font-weight: 500; letter-spacing: 4px;
+  line-height: 1.4;
+  color: #4aa3ff;
+  color: var(--accent);
 }
-.brandText em {
-  font-style: normal; font-weight: 300; font-size: 13px;
-  letter-spacing: 3px; color: #5fe4ff;  /* respaldo sin var() */
-  letter-spacing: 3px; color: var(--accent2);
-  margin-left: 5px;
-}
+.brandText em { display: none; }
 
 .topnav { display: flex; margin-left: 14px; }
 .topnav button + button { margin-left: 6px; }
 
 .topnav button {
-  padding: 9px 20px;
-  font-size: 14px; font-weight: 600; letter-spacing: .6px;
-  color: #93a1b4;  /* respaldo sin var() */
+  padding: 8px 18px;
+  font-size: 14px; font-weight: 600; letter-spacing: .4px;
+  color: #94a6bd;  /* respaldo sin var() */
   color: var(--dim);
-  background: rgba(255,255,255,.03);
-  border: 1px solid transparent;
-  border-radius: 999px;
+  background: transparent;
+  border: 0; border-radius: 6px;
   cursor: pointer;
-  transition: color .15s, background .15s, border-color .15s;
+  transition: color .15s, background .15s;
 }
 .topnav button.active,
 .topnav button:focus {
-  color: #04121d; outline: none;
-  background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent2), var(--accent));
-  border-color: rgba(255,255,255,.35);
-  box-shadow: 0 0 18px rgba(53,167,255,.45);
+  color: #ffffff; outline: none;
+  background: #16233a;
+  background: var(--panel2);
 }
 
 .topright { display: flex; align-items: center; margin-left: auto; }
@@ -122,43 +115,43 @@ body.tv {
 
 .icoBtn {
   width: 38px; height: 38px;
-  font-size: 19px; line-height: 1; color: #93a1b4;  /* respaldo sin var() */
+  font-size: 19px; line-height: 1; color: #94a6bd;  /* respaldo sin var() */
   font-size: 19px; line-height: 1; color: var(--dim);
-  background: rgba(255,255,255,.04);
-  border: 1px solid #1c2431; border-radius: 50%;  /* respaldo sin var() */
-  border: 1px solid var(--line); border-radius: 50%;
+  background: transparent;
+  border: 1px solid #1d2c42; border-radius: 8px;  /* respaldo sin var() */
+  border: 1px solid var(--line); border-radius: 8px;
   cursor: pointer;
 }
-.icoBtn:hover { color: #fff; border-color: #35455c; }
+.icoBtn:hover { color: #fff; border-color: #27384f; }
 .icoBtn:focus {
-  color: #04121d; outline: none;
-  background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent2), var(--accent));
-  border-color: rgba(255,255,255,.35);
+  color: #ffffff; outline: none;
+  background: #4aa3ff;
+  background: var(--accent);
+  border-color: #4aa3ff;
 }
 
 .statusIcons { display: flex; align-items: center; }
 .statusIcons .dot + .lbl { margin-left: 7px; }
 .statusIcons .dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #2ee08a; box-shadow: 0 0 10px #2ee08a;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #35c98a;
+  background: var(--success);
 }
-.statusIcons .dot.off { background: #55606f; box-shadow: none; }
+.statusIcons .dot.off { background: #64768c; }
 .statusIcons .lbl {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px; color: #93a1b4;  /* respaldo sin var() */
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px; color: var(--dim);
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: #94a6bd;  /* respaldo sin var() */
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px; color: var(--dim);
 }
 
 .clock {
-  font-size: 24px; font-weight: 300; letter-spacing: 1px; color: #f4f9ff;
+  font-size: 22px; font-weight: 500; letter-spacing: .5px; color: #ffffff;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 16px rgba(95,228,255,.35);
 }
 .clock small {
   display: block; margin-top: -2px;
-  font-size: 10px; font-weight: 700; letter-spacing: 1.6px; color: #93a1b4;  /* respaldo sin var() */
-  font-size: 10px; font-weight: 700; letter-spacing: 1.6px; color: var(--dim);
+  font-size: 10px; font-weight: 500; letter-spacing: 1.4px; color: #64768c;  /* respaldo sin var() */
+  font-size: 10px; font-weight: 500; letter-spacing: 1.4px; color: var(--dim2);
   text-align: right;
 }
 
@@ -167,16 +160,17 @@ body.tv {
   position: absolute; top: 82px; right: 34px; z-index: 40;
   width: 0; opacity: 0;
   height: 40px; padding: 0 0 0 16px;
-  font-size: 14px; color: #eef3fa;  /* respaldo sin var() */
+  font-size: 14px; color: #ffffff;  /* respaldo sin var() */
   font-size: 14px; color: var(--text);
-  background: rgba(12,18,26,.96);
-  border: 1px solid #35a7ff; border-radius: 20px;  /* respaldo sin var() */
-  border: 1px solid var(--accent); border-radius: 20px;
+  background: #16233a;
+  background: var(--panel2);
+  border: 1px solid #27384f; border-radius: 8px;  /* respaldo sin var() */
+  border: 1px solid var(--line2); border-radius: 8px;
   outline: none;
   transition: width .18s ease, opacity .18s ease, padding .18s ease;
 }
 .search.open { width: 300px; opacity: 1; padding-right: 16px; }
-.search::placeholder { color: #6c7a8d; }
+.search::placeholder { color: #64768c; }
 
 /* ---------------- Cuerpo: lateral + contenido ---------------- */
 /* La pantalla es una columna de altura completa: cabecera fija arriba y
@@ -189,60 +183,198 @@ body.tv {
 }
 .layout { display: flex; flex: 1 1 auto; min-height: 0; }
 
+/* Lateral: en la referencia son 140 dp con el icono encima de la etiqueta
+   y todo centrado (HomeActivity.kt NavSidebar). Aqui se mantiene la
+   estructura de lista para el D-pad, pero con la misma composicion. */
 .sidebar {
-  flex: 0 0 250px; width: 250px;
-  padding: 14px 12px 18px 18px;
+  flex: 0 0 168px; width: 168px;
+  padding: 24px 8px 18px;
   overflow-y: auto;
   scrollbar-width: none;
+  background: #0f1927;
+  background: var(--panel);
+  border-right: 1px solid #1d2c42;
+  border-right: 1px solid var(--line);
 }
 .sidebar::-webkit-scrollbar { display: none; }
 
-.sidehead {
-  padding: 4px 10px 10px;
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase;
-  color: #5f6d80;
-}
+.sidehead { display: none; }
 
 .sideItem {
-  display: flex; align-items: center;
-  width: 100%; margin-bottom: 4px; padding: 11px 10px;
-  font-size: 14.5px; color: #c2ccdb; text-align: left;
+  display: block;
+  width: 100%; margin-bottom: 8px; padding: 12px 6px;
+  text-align: center;
   background: transparent;
-  border: 0; border-left: 3px solid transparent;
-  border-radius: 4px 10px 10px 4px;
+  border: 0; border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap; overflow: hidden;
-  transition: background .14s, color .14s, padding .14s;
+  transition: background .14s, color .14s;
 }
+/* Iconos del lateral dibujados con CSS puro. Los emojis no existen en los
+   navegadores nativos de televisor, asi que cada icono es una forma hecha
+   con bordes y sombras: no depende de ninguna fuente ni de red. */
 .sideItem .si {
-  flex: 0 0 26px; width: 26px; height: 26px;
-  margin-right: 10px;
-  display: inline-block; line-height: 26px; text-align: center;
-  font-size: 15px; color: #7f8da0;
-  background: rgba(255,255,255,.05);
-  border-radius: 7px;
-  transition: color .14s, background .14s;
-}
-.sideItem .st { overflow: hidden; text-overflow: ellipsis; }
-.sideItem .sn {
-  margin-left: auto; padding-left: 8px;
-  font-size: 11px; color: #57647a;
+  display: block;
+  position: relative;
+  width: 26px; height: 22px; margin: 0 auto;
+  color: #94a6bd;
+  transition: color .14s;
 }
 
+/* television: marco con antena */
+.si.tv::before {
+  content: ""; position: absolute; left: 0; bottom: 0;
+  width: 26px; height: 16px;
+  border: 2px solid currentColor; border-radius: 3px;
+}
+.si.tv::after {
+  content: ""; position: absolute; left: 8px; top: 0;
+  width: 12px; height: 8px;
+  border-left: 2px solid currentColor; border-top: 2px solid currentColor;
+  transform: rotate(-45deg); transform-origin: bottom left;
+}
+
+/* serie / pelicula: claqueta */
+.si.serie::before {
+  content: ""; position: absolute; left: 0; top: 4px;
+  width: 26px; height: 16px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.serie::after {
+  content: ""; position: absolute; left: 4px; top: 0;
+  width: 18px; height: 6px;
+  border-top: 2px solid currentColor;
+}
+
+/* kids: cara sonriente */
+.si.kids::before {
+  content: ""; position: absolute; left: 1px; top: 1px;
+  width: 24px; height: 20px;
+  border: 2px solid currentColor; border-radius: 50%;
+}
+.si.kids::after {
+  content: ""; position: absolute; left: 7px; bottom: 4px;
+  width: 12px; height: 6px;
+  border: 2px solid currentColor; border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+/* anime: estrella */
+.si.anime::before {
+  content: "\2605"; position: absolute; left: 0; top: 0;
+  width: 26px; height: 22px; line-height: 22px; text-align: center;
+  font-size: 21px;
+}
+
+/* sport: balon */
+.si.sport::before {
+  content: ""; position: absolute; left: 1px; top: 1px;
+  width: 24px; height: 20px;
+  border: 2px solid currentColor; border-radius: 50%;
+}
+.si.sport::after {
+  content: ""; position: absolute; left: 11px; top: 3px;
+  width: 6px; height: 6px;
+  border: 2px solid currentColor; border-radius: 50%;
+}
+
+/* news: periodico */
+.si.news::before {
+  content: ""; position: absolute; left: 1px; top: 2px;
+  width: 24px; height: 18px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.news::after {
+  content: ""; position: absolute; left: 5px; top: 8px;
+  width: 10px; height: 8px;
+  border-left: 2px solid currentColor; border-right: 2px solid currentColor;
+}
+
+/* documental: libro */
+.si.doc::before {
+  content: ""; position: absolute; left: 2px; top: 1px;
+  width: 22px; height: 20px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.doc::after {
+  content: ""; position: absolute; left: 12px; top: 1px;
+  width: 2px; height: 20px; background: currentColor;
+}
+
+/* musica: nota */
+.si.music::before {
+  content: ""; position: absolute; left: 7px; bottom: 1px;
+  width: 6px; height: 6px; background: currentColor; border-radius: 50%;
+}
+.si.music::after {
+  content: ""; position: absolute; left: 12px; top: 0;
+  width: 2px; height: 14px; background: currentColor;
+  box-shadow: 5px 3px 0 0 currentColor;
+}
+
+/* adult: candado */
+.si.lock::before {
+  content: ""; position: absolute; left: 3px; top: 9px;
+  width: 20px; height: 12px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.lock::after {
+  content: ""; position: absolute; left: 8px; top: 2px;
+  width: 10px; height: 12px;
+  border: 2px solid currentColor; border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+}
+
+/* relig: cruz */
+.si.cross::before {
+  content: ""; position: absolute; left: 11px; top: 0;
+  width: 4px; height: 22px; background: currentColor;
+}
+.si.cross::after {
+  content: ""; position: absolute; left: 5px; top: 6px;
+  width: 16px; height: 4px; background: currentColor;
+}
+
+/* guia: lista con reloj */
+.si.guide::before {
+  content: ""; position: absolute; left: 1px; top: 1px;
+  width: 24px; height: 20px;
+  border: 2px solid currentColor; border-radius: 2px;
+}
+.si.guide::after {
+  content: ""; position: absolute; left: 6px; top: 7px;
+  width: 14px; height: 2px; background: currentColor;
+  box-shadow: 0 5px 0 0 currentColor;
+}
+
+/* explorar: lupa */
+.si.search::before {
+  content: ""; position: absolute; left: 2px; top: 2px;
+  width: 15px; height: 15px;
+  border: 2px solid currentColor; border-radius: 50%;
+}
+.si.search::after {
+  content: ""; position: absolute; left: 16px; top: 15px;
+  width: 9px; height: 2px; background: currentColor;
+  transform: rotate(45deg); transform-origin: left center;
+}
+.sideItem .st {
+  display: block; margin-top: 6px;
+  font-size: 11.5px; font-weight: 500; line-height: 1.3;
+  color: #94a6bd;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sideItem .sn { display: none; }
+
 .sideItem.active {
-  color: #fff; font-weight: 700;
-  background: linear-gradient(90deg, rgba(53,167,255,.22), rgba(53,167,255,.02));
-  border-left-color: #35a7ff;  /* respaldo sin var() */
-  border-left-color: var(--accent);
-  padding-left: 16px;
+  background: #16233a;
+  background: var(--panel2);
 }
-.sideItem.active .si {
-  color: #04121d;
-  background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent2), var(--accent));
-  box-shadow: 0 0 12px rgba(53,167,255,.5);
+.sideItem.active .si,
+.sideItem.active .st {
+  color: #4aa3ff;
+  color: var(--accent);
 }
+.sideItem.active .st { font-weight: 700; }
 
 .content {
   flex: 1 1 auto; min-width: 0;
@@ -254,15 +386,19 @@ body.tv {
   .content { display: block; }
 }
 
-/* ---------------- Carrusel de destacados ---------------- */
+/* ---------------- Carrusel de destacados ----------------
+   La referencia lo pinta como un bloque con degradado vertical de rojo a
+   superficie (FeaturedBanner), con el texto pegado abajo a la izquierda y
+   un boton rojo de accion. Aqui se mantiene la caratula real de fondo. */
 .hero {
   position: relative;
   flex: 0 0 auto;
-  height: 372px;
-  margin: 16px 34px 0 8px;
+  height: 320px;
+  margin: 24px 24px 0;
   overflow: hidden;
-  border-radius: 14px;
-  background: #0b0f16;
+  border-radius: 12px;
+  background: #16233a;
+  background: var(--panel2);
   outline: none;
 }
 .heroTrack {
@@ -276,92 +412,92 @@ body.tv {
   flex: 0 0 100%; width: 100%; height: 100%;
   overflow: hidden;
 }
+/* Fondo difuminado de la caratula: da color sin perder legibilidad */
 .slide .artbg {
   position: absolute; inset: -8%;
-  background: #10161f center / cover no-repeat;
-  filter: blur(26px) saturate(1.3) brightness(.55);
+  background: #16233a center / cover no-repeat;
+  filter: blur(30px) saturate(1.1) brightness(.42);
   transform: scale(1.06);
 }
-/* Sin caratula: degradado de marca en lugar de un rectangulo vacio */
+/* Sin caratula: degradado rojo de marca, como el banner de la referencia */
 .slide.plain .artbg,
 .slide .artbg.blank {
-  background:
-    radial-gradient(760px 340px at 78% 30%, rgba(53,167,255,.42), transparent 65%),
-    radial-gradient(620px 380px at 12% 80%, rgba(120,70,255,.36), transparent 62%),
-    linear-gradient(120deg, #0b1220, #101a2a 55%, #060a11);
+  background: linear-gradient(180deg, rgba(74,163,255,.60) 0%, #0f1927 100%);  /* respaldo sin var() */
+  background: linear-gradient(180deg, var(--accent) 0%, var(--panel) 100%);
   filter: none;
 }
 
 .slide .art {
   position: absolute; top: 0; right: 0; bottom: 0;
-  left: 34%;
+  left: 30%;
   width: auto; height: 100%;
   object-fit: contain;
   object-position: center;
-  filter: saturate(1.06) contrast(1.04);
 }
 
 .slide .art.blank { display: none; }
 
 .slide .scrim {
   position: absolute; inset: 0;
-  background:
-    linear-gradient(90deg, rgba(3,6,10,.95) 0%, rgba(3,6,10,.80) 30%, rgba(3,6,10,.30) 58%, rgba(3,6,10,.20) 100%),
-    linear-gradient(to top, rgba(3,6,10,.92), rgba(3,6,10,0) 58%);
+  background: linear-gradient(90deg, rgba(7,12,20,.94) 0%, rgba(7,12,20,.72) 34%, rgba(7,12,20,.25) 62%, rgba(7,12,20,.15) 100%);
 }
 
 /* Sin flex aqui a proposito: el bloque apilado se comporta igual en los
    motores de television antiguos, donde flex + posicion absoluta se
    renderiza de forma inconsistente. */
 .slide .info {
-  position: absolute; left: 42px; bottom: 40px;
-  width: 52%;
+  position: absolute; left: 32px; bottom: 32px;
+  width: 54%;
 }
 .slide .chip {
-  display: inline-block; margin-bottom: 14px; padding: 4px 11px;
-  font-size: 10.5px; font-weight: 800; letter-spacing: 1.6px;
-  color: #04121d; background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  color: #04121d; background: linear-gradient(180deg, var(--accent2), var(--accent));
-  border-radius: 999px;
+  display: inline-block; margin-bottom: 12px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+  color: #ffffff;
+  background: rgba(74,163,255,.90);
+  border-radius: 4px;
 }
 .slide h1 {
   margin: 0; max-width: 100%;
-  font-size: 34px; font-weight: 800; line-height: 1.08; letter-spacing: -.4px;
-  color: #fff;
-  text-shadow: 0 3px 22px rgba(0,0,0,.85);
+  font-size: 36px; font-weight: 700; line-height: 1.1;
+  color: #ffffff;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .slide p {
-  margin: 10px 0 0; max-width: 100%;
-  font-size: 13.5px; line-height: 1.45; color: #c3cede;
-  max-height: 40px; overflow: hidden;
+  margin: 8px 0 0; max-width: 100%;
+  font-size: 16px; line-height: 1.45; color: #94a6bd;
+  max-height: 46px; overflow: hidden;
 }
 .slide .meta {
-  margin-top: 14px;
+  margin-top: 16px;
   max-width: 100%;
 }
 .slide .tag {
   display: inline-block;
   margin: 0 8px 0 0;
-  padding: 5px 12px;
-  font-size: 11px; font-weight: 700; letter-spacing: .6px;
-  color: #dbe5f2; background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.18); border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 14px; font-weight: 600;
+  color: #ffffff;
+  background: #4aa3ff;
+  background: var(--accent);
+  border: 0; border-radius: 4px;
+  cursor: pointer;
 }
 .slide .tag.live {
-  color: #fff;
-  background: linear-gradient(180deg, #ff4258, #d01026);
-  border-color: rgba(255,255,255,.25);
-  box-shadow: 0 0 16px rgba(255,45,70,.45);
+  color: #ffffff;
+  background: #2b6fc4;
+  background: var(--accentPre);
+}
+.slide .tag.ghost {
+  background: rgba(255,255,255,.14);
+  color: #ffffff;
 }
 
 /* Marco del slide enfocado con D-pad */
-.hero.focused .slide.active .info h1 { color: #fff; }
-.hero.focused { box-shadow: 0 0 0 2px rgba(53,167,255,.75), 0 0 34px rgba(53,167,255,.30); }
+.hero.focused { box-shadow: 0 0 0 2px #4aa3ff; }
 .hero .edge {
   position: absolute; top: 0; bottom: 0; width: 4px;
-  background: linear-gradient(180deg, transparent, #35a7ff, transparent);  /* respaldo sin var() */
-  background: linear-gradient(180deg, transparent, var(--accent), transparent);
+  background: #4aa3ff;
+  background: var(--accent);
   opacity: 0;
 }
 .hero.focused .edge { opacity: 1; }
@@ -372,65 +508,59 @@ body.tv {
 .heroDots {
   position: absolute; right: 22px; bottom: 18px; z-index: 6;
   display: flex; align-items: center;
-  padding: 8px 14px;
-  background: rgba(6,10,16,.78);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 .heroDots i {
-  display: block; width: 9px; height: 9px; border-radius: 50%;
-  background: #5a6779;
+  display: block; width: 8px; height: 8px; border-radius: 50%;
+  background: #3c4d66;
   transition: background .18s, width .18s;
 }
-.heroDots i + i { margin-left: 9px; }
+.heroDots i + i { margin-left: 8px; }
 .heroDots i.on {
-  width: 30px; border-radius: 5px;
-  background: linear-gradient(90deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(90deg, var(--accent2), var(--accent));
-  box-shadow: 0 0 12px rgba(53,167,255,.7);
+  width: 26px; border-radius: 4px;
+  background: #4aa3ff;
+  background: var(--accent);
 }
 
 .heroEmpty {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; color: #93a1b4;  /* respaldo sin var() */
+  font-size: 14px; color: #94a6bd;  /* respaldo sin var() */
   font-size: 14px; color: var(--dim);
-  background:
-    radial-gradient(700px 300px at 70% 20%, rgba(53,167,255,.18), transparent 65%),
-    linear-gradient(120deg, #0a1119, #060a10);
+  background: linear-gradient(180deg, #16233a, #070c14);
 }
 
 /* ---------------- Estanterias ---------------- */
 .shelves {
   flex: 1 1 auto; min-width: 0;
-  margin-top: 18px;
-  padding: 2px 34px 26px 8px;
+  margin-top: 20px;
+  padding: 0 24px 24px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #22304a transparent;
+  scrollbar-color: #1d2c42 transparent;
 }
 
-.shelf { margin-bottom: 22px; }
+.shelf { margin-bottom: 26px; }
 
 .shelfhead {
   display: flex; align-items: baseline;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 .shelfhead h2 + em { margin-left: 12px; }
 .shelfhead em + .rule { margin-left: 12px; }
 .shelfhead h2 {
   margin: 0;
-  font-size: 13px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
-  color: #e8eef8;
+  font-size: 22px; font-weight: 600; letter-spacing: 0;
+  text-transform: none;
+  color: #ffffff;
 }
 .shelfhead em {
-  font-style: normal; font-size: 11.5px; letter-spacing: 1px; color: #5f6d80;
+  font-style: normal; font-size: 13px; letter-spacing: 0; color: #64768c;
 }
-.shelfhead .rule {
-  flex: 1 1 auto; height: 1px;
-  background: linear-gradient(90deg, rgba(53,167,255,.40), rgba(53,167,255,0));
-}
+.shelfhead .rule { display: none; }
 
 .row {
   display: flex;
@@ -442,67 +572,69 @@ body.tv {
 }
 .row::-webkit-scrollbar { display: none; }
 
-/* ---------------- Caratula ---------------- */
+/* ---------------- Caratula ----------------
+   La referencia usa caratulas verticales de 160x220 con proporcion 0.727
+   (theme-config.json cardAspectRatio), no 16:9. */
 .card {
   position: relative;
   flex: 0 0 auto;
-  width: 186px;
-  margin-right: 14px;
+  width: 160px;
+  margin-right: 12px;
   cursor: pointer;
   outline: none;
 }
 
 .thumb {
   position: relative;
-  width: 100%; padding-bottom: 56.25%;   /* 16:9 */
-  background: #0e141d center / cover no-repeat;
+  width: 100%; padding-bottom: 137.5%;   /* vertical 160x220 */
+  background: #16233a center / cover no-repeat;
   border: 2px solid transparent;
-  border-radius: 10px;  /* respaldo sin var() */
+  border-radius: 8px;  /* respaldo sin var() */
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0,0,0,.55);
+  box-shadow: 0 4px 14px rgba(0,0,0,.6);
   transition: border-color .14s, transform .14s, box-shadow .14s;
 }
 
 .thumb.blank {
-  background:
-    linear-gradient(140deg, rgba(53,167,255,.22), rgba(120,70,255,.18)),
-    #0e141d;
+  background: linear-gradient(140deg, #1d2c42, #0f1927);
 }
 
 .thumb img {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  padding: 6%;
+  padding: 5%;
   object-fit: contain;
 }
 
 .card.focused .thumb {
-  border-color: #5fe4ff;  /* respaldo sin var() */
-  border-color: var(--accent2);
-  box-shadow: 0 0 0 2px rgba(53,167,255,.55), 0 0 26px rgba(53,167,255,.45), 0 10px 26px rgba(0,0,0,.7);
-  transform: scale(1.07);
+  border-color: #4aa3ff;  /* respaldo sin var() */
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(74,163,255,.45), 0 10px 24px rgba(0,0,0,.75);
+  transform: scale(1.05);
 }
 
 .badge {
   position: absolute; top: 6px; left: 6px; z-index: 2;
-  display: table; padding: 3px 8px;
-  font-size: 9px; font-weight: 800; letter-spacing: 1px;
+  display: table; padding: 3px 7px;
+  font-size: 9px; font-weight: 700; letter-spacing: .8px;
   white-space: nowrap;
-  color: #fff; background: rgba(4,7,12,.82);
-  border-radius: 4px;
+  color: #fff; background: rgba(7,12,20,.85);
+  border-radius: 3px;
 }
 /* Punto de "en vivo" dibujado con un pseudo-elemento: no depende de
    fuentes de iconos ni de emojis, que no existen en todos los televisores. */
 .badge.live::before {
-  content: ""; position: absolute; left: 7px; top: 50%;
-  width: 6px; height: 6px; margin-top: -3px;
+  content: ""; position: absolute; left: 6px; top: 50%;
+  width: 5px; height: 5px; margin-top: -2px;
   background: #fff; border-radius: 50%;
 }
+/* Unico rojo de la interfaz: "en vivo". Es lo unico que debe saltar
+   sobre una paleta fria, asi que no se usa en ninguna otra pieza. */
 .badge.live {
-  padding-left: 18px;
-  background: linear-gradient(180deg, #ff4258, #d01026);
-  box-shadow: 0 0 12px rgba(255,45,70,.5);
+  padding-left: 15px;
+  background: #e5484d;  /* respaldo sin var() */
+  background: var(--live);
 }
 
 /* Nota: el nombre de clase "live" se reutiliza en las etiquetas del
@@ -513,14 +645,14 @@ body.tv {
 
 .ttl {
   margin-top: 9px;
-  font-size: 13px; line-height: 1.3; color: #9fadc0;
+  font-size: 13px; line-height: 1.3; color: #94a6bd;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.card.focused .ttl { color: #fff; font-weight: 700; }
+.card.focused .ttl { color: #fff; font-weight: 600; }
 
 .onair {
   display: block; margin-top: 3px;
-  font-size: 11px; color: #37d9a0;
+  font-size: 11px; color: #35c98a;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -532,64 +664,64 @@ body.tv {
 
 .epg-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 34px 10px;
+  padding: 8px 24px 12px;
 }
 .epg-nav {
-  padding: 8px 17px; font-size: 14px; color: #c2ccdb;
-  background: rgba(255,255,255,.05);
-  border: 1px solid #1c2431; border-radius: 8px;  /* respaldo sin var() */
+  padding: 8px 17px; font-size: 14px; color: #94a6bd;
+  background: #0f1927;
+  background: var(--panel);
+  border: 1px solid #1d2c42; border-radius: 8px;  /* respaldo sin var() */
   border: 1px solid var(--line); border-radius: 8px;
   cursor: pointer;
 }
 .epg-nav:focus {
-  color: #04121d; outline: none;
-  background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent2), var(--accent));
-  border-color: rgba(255,255,255,.35);
+  color: #ffffff; outline: none;
+  background: #4aa3ff;
+  background: var(--accent);
+  border-color: #4aa3ff;
 }
-.epg-range { font-size: 13px; color: #93a1b4; }
+.epg-range { font-size: 13px; color: #64768c; }
 
-.epg-labels { flex: 0 0 186px; width: 186px; overflow: hidden; border-right: 1px solid #1c2431; }
-.epg-label { height: 56px; padding: 8px 12px; border-bottom: 1px solid #0f1620; overflow: hidden; }
-.epg-label.focused { background: linear-gradient(90deg, rgba(53,167,255,.20), transparent); }
+.epg-labels { flex: 0 0 186px; width: 186px; overflow: hidden; border-right: 1px solid #1d2c42; }
+.epg-label { height: 56px; padding: 8px 12px; border-bottom: 1px solid #16233a; overflow: hidden; }
+.epg-label.focused { background: #16233a; }
 .epg-logoname {
   display: block; font-size: 12.5px; font-weight: 700;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.epg-label.focused .epg-logoname { color: #5fe4ff; }
+.epg-label.focused .epg-logoname { color: #4aa3ff; }
 .epg-now {
-  display: block; margin-top: 3px; font-size: 11px; color: #93a1b4;  /* respaldo sin var() */
-  display: block; margin-top: 3px; font-size: 11px; color: var(--dim);
+  display: block; margin-top: 3px; font-size: 11px; color: #94a6bd;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .epg-body { flex: 1 1 auto; display: flex; min-height: 0; }
 .epg-scroll { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-.epg-axis { display: flex; height: 22px; border-bottom: 1px solid #1c2431; }
+.epg-axis { display: flex; height: 22px; border-bottom: 1px solid #1d2c42; }
 .epg-slot {
-  flex: 0 0 auto; font-size: 11px; color: #6b7a8e;
-  border-left: 1px solid #0f1620; padding-left: 5px;
+  flex: 0 0 auto; font-size: 11px; color: #64768c;
+  border-left: 1px solid #16233a; padding-left: 5px;
 }
 .epg-tracks { position: relative; }
-.epg-row { position: relative; height: 56px; border-bottom: 1px solid #0f1620; }
+.epg-row { position: relative; height: 56px; border-bottom: 1px solid #16233a; }
 
 .epg-prog {
   position: absolute; top: 3px; bottom: 3px;
   padding: 4px 7px; overflow: hidden;
-  background: rgba(255,255,255,.05);
-  border-left: 3px solid #39445a; border-radius: 5px;
+  background: #16233a;
+  border-left: 3px solid #33455e; border-radius: 4px;
   cursor: pointer;
 }
 .epg-prog b {
-  display: block; font-size: 11.5px; font-weight: 600; color: #d7dee9;
+  display: block; font-size: 11.5px; font-weight: 600; color: #ffffff;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.epg-prog i { display: block; margin-top: 1px; font-size: 10px; font-style: normal; color: #93a1b4; }
-.epg-prog.now { background: rgba(53,167,255,.14); }
+.epg-prog i { display: block; margin-top: 1px; font-size: 10px; font-style: normal; color: #94a6bd; }
+.epg-prog.now { background: #1d2c42; }
 .epg-prog.sel {
-  border-left-color: #35a7ff;  /* respaldo sin var() */
+  border-left-color: #4aa3ff;  /* respaldo sin var() */
   border-left-color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(53,167,255,.55);
+  box-shadow: inset 0 0 0 1px rgba(74,163,255,.50);
 }
 .epg-prog.sel b { color: #fff; }
 
@@ -602,20 +734,16 @@ body.tv {
 
 .epg-needle {
   position: absolute; top: 0; bottom: 0; width: 2px;
-  background: #ff2d46; z-index: 5; pointer-events: none;  /* respaldo sin var() */
-  background: var(--live); z-index: 5; pointer-events: none;
-  box-shadow: 0 0 10px rgba(255,45,70,.8);
+  background: #4aa3ff; z-index: 5; pointer-events: none;
 }
 
 .epg-empty {
   position: absolute; top: 110px; left: 0; right: 0; text-align: center;
-  font-size: 15px; line-height: 1.9; color: #93a1b4;  /* respaldo sin var() */
-  font-size: 15px; line-height: 1.9; color: var(--dim);
+  font-size: 15px; line-height: 1.9; color: #94a6bd;
 }
 .epg-empty code {
-  padding: 2px 6px; color: #9fd0ff; background: #10161f;
-  border: 1px solid #1c2431; border-radius: 4px;  /* respaldo sin var() */
-  border: 1px solid var(--line); border-radius: 4px;
+  padding: 2px 6px; color: #ffffff; background: #16233a;
+  border: 1px solid #27384f; border-radius: 4px;
 }
 
 /* ---------------- Reproductor ---------------- */
@@ -633,25 +761,25 @@ body.tv {
   margin: 0; font-size: 22px; font-weight: 700;
   text-shadow: 0 2px 14px rgba(0,0,0,.9);
 }
-.status { font-size: 12.5px; color: #b7c2d0; text-align: right; }
+.status { font-size: 12.5px; color: #94a6bd; text-align: right; }
 .status.error { color: #ff6b6b; }
 
 .quality { margin-top: 12px; min-height: 30px; }
 .q {
   display: inline-block; margin-right: 7px; padding: 6px 14px;
-  font-size: 12.5px; color: #c2ccdb;
+  font-size: 12.5px; color: #ffffff;
   background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.16); border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.18); border-radius: 4px;
   cursor: pointer;
 }
 .q.active, .q:focus {
-  color: #04121d; outline: none;
-  background: linear-gradient(180deg, #5fe4ff, #35a7ff);  /* respaldo sin var() */
-  background: linear-gradient(180deg, var(--accent2), var(--accent));
-  border-color: rgba(255,255,255,.35);
+  color: #ffffff; outline: none;
+  background: #4aa3ff;
+  background: var(--accent);
+  border-color: #4aa3ff;
 }
 
-.hint { margin: 12px 0 0; font-size: 11.5px; letter-spacing: .4px; color: #7d8a9d; }
+.hint { margin: 12px 0 0; font-size: 11.5px; letter-spacing: .4px; color: #64768c; }
 
 /* ---------------- Escalones de pantalla ----------------
    El televisor de referencia es 1280x720. Por debajo se aprieta el
@@ -662,21 +790,24 @@ body.tv {
    El orden importa: cada bloque baja el max-width del anterior, asi que
    lo mas estrecho esta al final y gana cuando coinciden los dos. */
 @media (max-width: 1100px) {
-  .sidebar { flex: 0 0 196px; width: 196px; }
-  .sideItem { font-size: 14px; padding: 9px 10px; }
-  .card { width: 158px; }
-  .hero { margin-right: 20px; }
-  .shelves { padding-right: 20px; }
-  .slide h1 { font-size: 27px; }
-  .clock { font-size: 20px; }
+  .sidebar { flex: 0 0 152px; width: 152px; padding: 20px 6px 16px; }
+  .sideItem { padding: 10px 4px; }
+  .sideItem .si { transform: scale(.9); }
+  .card { width: 142px; }
+  .hero { margin: 20px 18px 0; }
+  .shelves { padding: 0 18px 22px; }
+  .slide h1 { font-size: 28px; }
+  .clock { font-size: 19px; }
 }
 @media (max-height: 700px) {
   .topbar { height: 64px; }
   .epg { top: 64px; }
-  .hero { height: 286px; margin-top: 10px; }
-  .shelves { margin-top: 12px; }
-  .slide .info { bottom: 26px; }
-  .slide h1 { font-size: 25px; }
+  .hero { height: 250px; margin-top: 14px; }
+  .shelves { margin-top: 14px; }
+  .slide .info { bottom: 24px; }
+  .slide h1 { font-size: 26px; }
+  .shelf { margin-bottom: 18px; }
+  .card { width: 132px; }
 }
 
 /* En tableta y movil el scroll vertical lo lleva .layout, no .shelves:
@@ -700,37 +831,36 @@ body.tv {
   .clock { font-size: 18px; }
   .clock small { display: none; }
 
-  /* Tira de categorias desplazable en horizontal */
+  /* Tira de categorias desplazable: aqui si vuelven a ir en linea,
+     porque en vertical caben many mas que en una columna de 140 px. */
   .sidebar {
     display: block; width: auto;
     padding: 10px 16px;
     overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    background: rgba(8,12,18,.75);
-    border-bottom: 1px solid #1c2431;
+    background: #0f1927;
+    border-right: 0;
+    border-bottom: 1px solid #1d2c42;
   }
   .sidebar::-webkit-scrollbar { display: none; }
-  .sidehead { display: none; }
   .sideItem {
-    display: inline-flex; width: auto; margin: 0 8px 0 0;
-    padding: 8px 14px;
-    border: 1px solid #1c2431; border-left-width: 1px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.04);
+    display: inline-block; width: auto; margin: 0 8px 0 0;
+    padding: 8px 14px; text-align: center;
   }
-  .sideItem.active {
-    border-left-color: #35a7ff;
-    background: linear-gradient(90deg, rgba(53,167,255,.28), rgba(53,167,255,.06));
-    padding-left: 14px;
-  }
-  .sideItem .sn { display: none; }
+  .sideItem .si { display: inline-block; margin: 0 7px 0 0; vertical-align: middle; transform: scale(.62); }
+  .sideItem .st { display: inline-block; margin: 0; vertical-align: middle; }
+  .sideItem.active { background: #16233a; }
+  .sideItem.active .si, .sideItem.active .st { color: #4aa3ff; }
 
-  .hero { height: 320px; margin: 14px 16px 0; }
-  .slide .info { left: 24px; bottom: 26px; width: 62%; }
+  .hero { height: 300px; margin: 14px 16px 0; }
+  .slide .info { left: 24px; bottom: 24px; width: 60%; }
   .slide h1 { font-size: 24px; }
-  .shelves { margin-top: 14px; padding: 2px 16px 26px; overflow: visible; }
+  .slide p { font-size: 14px; }
+  .shelves { margin-top: 14px; padding: 0 16px 22px; }
   .shelf { margin-bottom: 20px; }
+  .shelfhead h2 { font-size: 18px; }
+  .card { width: 130px; }
 }
 
 /* ---- Movil: rejilla de caratulas y carrusel mas bajo ---- */
@@ -738,9 +868,8 @@ body.tv {
   .topbar { height: 58px; padding: 0 12px; }
   .epg { top: 58px; }
 
-  .brandMark { width: 30px; height: 30px; line-height: 30px; font-size: 17px; }
-  .brandText { font-size: 16px; letter-spacing: 1.6px; }
-  .brandText em { display: none; }
+  .brandMark { font-size: 16px; letter-spacing: 3px; }
+  .brandText { font-size: 9px; letter-spacing: 3px; }
   .topnav button { padding: 8px 14px; font-size: 13px; }
   .topright > * + * { margin-left: 10px; }
   .icoBtn { width: 34px; height: 34px; font-size: 17px; }
@@ -749,17 +878,18 @@ body.tv {
   .search.open { width: calc(100% - 24px); }
 
   .sidebar { padding: 9px 12px; }
-  .sideItem { padding: 7px 12px; font-size: 13px; }
-  .sideItem .si { flex: 0 0 22px; width: 22px; height: 22px; line-height: 22px; font-size: 13px; margin-right: 7px; }
+  .sideItem { padding: 7px 12px; }
+  .sideItem .si { transform: scale(.55); margin-right: 5px; }
+  .sideItem .st { font-size: 12px; margin-left: 0; }
 
-  .hero { height: 250px; margin: 12px 12px 0; border-radius: 10px; }
+  .hero { height: 240px; margin: 12px 12px 0; border-radius: 10px; }
   .slide .art { left: 20%; }
   .slide .info { left: 16px; bottom: 18px; width: 84%; }
   .slide h1 { font-size: 19px; }
-  .slide p { font-size: 12px; max-height: 34px; }
-  .heroDots { right: 12px; bottom: 12px; padding: 6px 11px; }
+  .slide p { font-size: 12.5px; max-height: 34px; }
+  .heroDots { right: 12px; bottom: 12px; }
   .heroDots i + i { margin-left: 7px; }
-  .heroDots i.on { width: 22px; }
+  .heroDots i.on { width: 20px; }
 
   /* Rejilla: con pocas caratulas por fila cabe mejor que una fila
      desplazable, y el pulgar no tiene que buscar en horizontal. */
@@ -769,7 +899,7 @@ body.tv {
   }
   .card {
     display: inline-block; vertical-align: top;
-    width: 31%; margin: 0 3.5% 12px 0;
+    width: 31%; margin: 0 3.5% 14px 0;
   }
   .row .card:nth-child(3n) { margin-right: 0; }
   .ttl { font-size: 11.5px; margin-top: 6px; }
@@ -777,7 +907,7 @@ body.tv {
   .badge.live { padding-left: 13px; }
   .badge.live::before { left: 5px; width: 5px; height: 5px; margin-top: -2px; }
   .onair { font-size: 10px; }
-  .shelfhead h2 { font-size: 12px; letter-spacing: 1.4px; }
+  .shelfhead h2 { font-size: 16px; }
 
   .overlay { padding: 16px 16px 18px; }
   .nowTitle { font-size: 16px; }
@@ -789,26 +919,29 @@ body.tv {
   .card { width: 47%; margin-right: 5%; }
   .row .card:nth-child(3n) { margin-right: 5%; }
   .row .card:nth-child(2n) { margin-right: 0; }
-  .hero { height: 220px; }
+  .hero { height: 210px; }
   .slide h1 { font-size: 17px; }
 }
 
 /* ---- Pantallas muy anchas: no estirar el contenido mas de lo justo ---- */
 @media (min-width: 1800px) {
-  .sidebar { flex: 0 0 290px; width: 290px; }
-  .sideItem { font-size: 17px; padding: 14px 14px; }
-  .sideItem .si { flex: 0 0 32px; width: 32px; height: 32px; line-height: 32px; font-size: 18px; margin-right: 14px; }
-  .hero { height: 520px; margin-right: 48px; }
-  .slide .info { left: 64px; bottom: 60px; width: 40%; }
-  .slide h1 { font-size: 48px; }
-  .slide p { font-size: 16px; max-height: 46px; }
-  .slide .chip { font-size: 12px; padding: 5px 14px; margin-bottom: 16px; }
-  .card { width: 250px; margin-right: 18px; }
+  .sidebar { flex: 0 0 200px; width: 200px; padding: 32px 10px 22px; }
+  .sideItem { padding: 15px 6px; }
+  .sideItem .si { transform: scale(1.05); }
+  .sideItem .st { font-size: 13px; }
+  .hero { height: 460px; margin: 28px 32px 0; }
+  .slide .info { left: 44px; bottom: 44px; width: 50%; }
+  .slide h1 { font-size: 44px; }
+  .slide p { font-size: 17px; max-height: 50px; }
+  .slide .chip { font-size: 12px; padding: 4px 12px; margin-bottom: 14px; }
+  .card { width: 200px; margin-right: 16px; }
   .ttl { font-size: 15px; }
-  .shelves { margin-top: 26px; padding: 2px 48px 34px 8px; }
-  .shelf { margin-bottom: 30px; }
-  .clock { font-size: 30px; }
-  .brandText { font-size: 25px; }
+  .shelves { margin-top: 24px; padding: 0 32px 30px; }
+  .shelf { margin-bottom: 32px; }
+  .shelfhead h2 { font-size: 26px; }
+  .clock { font-size: 28px; }
+  .brandMark { font-size: 27px; letter-spacing: 5px; }
+  .brandText { font-size: 14px; letter-spacing: 5px; }
 }
 
 /* ---- Sin puntero (movil/tablet tactil): el foco por D-pad no aplica y el
@@ -822,10 +955,10 @@ body.tv {
   display: none; position: fixed; left: 50%; bottom: 40px;
   transform: translateX(-50%); max-width: 78%;
   padding: 12px 22px; font-size: 13.5px;
-  color: #eaf1fb;
-  background: rgba(14,20,30,.97);
-  border: 1px solid #35a7ff;  /* respaldo sin var() */
+  color: #ffffff;
+  background: #16233a;
+  background: rgba(31,31,31,.97);
+  border: 1px solid #4aa3ff;  /* respaldo sin var() */
   border: 1px solid var(--accent);
-  border-radius: 10px; z-index: 60;
-  box-shadow: 0 0 26px rgba(53,167,255,.35);
+  border-radius: 8px; z-index: 60;
 }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
 <title>Xuper TV</title>
-<link rel="stylesheet" href="css/app.css?v=17">
+<link rel="stylesheet" href="css/app.css?v=30">
 </head>
 <body class="tv">
 
@@ -13,9 +13,11 @@
 <section id="catalogScreen">
 
   <header class="topbar">
+    <!-- Marca en dos lineas como en la app de referencia: XUPER en blanco,
+         HYDRA en rojo debajo (HomeActivity.kt NavSidebar). -->
     <div id="brand" class="brand">
-      <span class="brandMark">X</span>
-      <span class="brandText">UPER<em>TV</em></span>
+      <span class="brandMark" id="brandMark">XUPER</span>
+      <span class="brandText" id="brandText">HYDRA<em>TV</em></span>
     </div>
 
     <nav class="topnav">
@@ -72,9 +74,9 @@
 
 <!--?v=8 fuerza recarga: el cache del navegador de un televisor sobrevive
      varias sesiones y sigue sirviendo la version anterior de los scripts. -->
-<script src="js/config.js?v=8"></script>
+<script src="js/config.js?v=20"></script>
 <script src="js/epg.js?v=8"></script>
 <script src="js/player.js?v=8"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/app.js?v=20"></script>
 </body>
 </html>

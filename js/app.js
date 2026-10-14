@@ -31,27 +31,29 @@
   }
 
   /* ---------------------------------------------------------------- *
-   * Iconos del lateral. Emojiegis: cada uno es un solo caracter, sin
-   * peticiones de red, y todos los navegadores los pintan.
+   * Iconos del lateral. Cada entrada devuelve un nombre de clase, no un
+   * caracter: los emojis no existen en los navegadores nativos de
+   * televisor y salian como recuadros vacios. Las formas se dibujan con
+   * CSS puro a partir de estas clases (ver .si en app.css).
    * ---------------------------------------------------------------- */
   var ICONS = [
-    [/tv|televis|live|directo|general|destacad|principal|vod|pelicula|cine/i, '\uD83D\uDCFA'],
-    [/serie|drama|telenovela/i, '\uD83C\uDFAC'],
-    [/kidd|infantil|children|Disney/i, '\uD83C\uDF1A'],
-    [/anime|anime|toon/i, '\uD83D\uDC80'],
-    [/deport|sport|futbol|caja/i, '\u26BD'],
-    [/notic|news|actualidad|informativ/i, '\uD83D\uDCF0'],
-    [/document|docu|cientific/i, '\uD83D\uDCD6'],
-    [/musica|music/i, '\uD83C\uDFB5'],
-    [/adult|xxx|erotic/i, '\uD83D\uDD11'],
-    [/relig|creencias/i, '\u271D'],
-    [/guia|tvguia/i, '\uD83D\uDCC5'],
-    [/explor|buscar|search/i, '\uD83D\uDD0D']
+    [/serie|drama|telenovela/i, 'serie'],
+    [/kidd|infantil|children|Disney/i, 'kids'],
+    [/anime|anime|toon/i, 'anime'],
+    [/deport|sport|futbol|caja/i, 'sport'],
+    [/notic|news|actualidad|informativ/i, 'news'],
+    [/document|docu|cientific/i, 'doc'],
+    [/musica|music/i, 'music'],
+    [/adult|xxx|erotic/i, 'lock'],
+    [/relig|creencias/i, 'cross'],
+    [/guia|tvguia/i, 'guide'],
+    [/explor|buscar|search/i, 'search'],
+    [/tv|televis|live|directo|general|destacad|principal|vod|pelicula|cine/i, 'tv']
   ];
 
   function iconFor(name) {
     for (var i = 0; i < ICONS.length; i++) if (ICONS[i][0].test(name)) return ICONS[i][1];
-    return '\uD83D\uDCFA';
+    return 'tv';
   }
 
   /* ---------------------------------------------------------------- *
@@ -147,14 +149,21 @@
     loadCatalog();
   }
 
-  /** CONFIG.brand.name personalize el logotipo del cliente. */
+  /**
+   * CONFIG.brand.name personalize el logotipo. Mantiene el formato de la
+   * marca de la app de referencia: primera palabra en blanco y grande,
+   * el resto en rojo y pequeno debajo.
+   */
   function applyBrand() {
     var name = (CONFIG.brand && CONFIG.brand.name) || '';
     if (!name) return;
     var parts = Utils.trim(name).split(/\s+/);
-    el.brand.querySelector('.brandMark').textContent = parts[0].charAt(0).toUpperCase();
-    el.brand.querySelector('.brandText').innerHTML =
-      Utils.esc(parts.slice(1).join(' ') || parts[0]) + '<em>TV</em>';
+    var head = parts[0].toUpperCase();
+    var tail = parts.slice(1).join(' ').toUpperCase() || 'TV';
+
+    $('brandMark').textContent = head;
+    $('brandText').innerHTML = Utils.esc(tail) +
+      (tail ? '<em>&nbsp;TV</em>' : '');
   }
 
   function loadCatalog() {
@@ -256,7 +265,7 @@
     for (var i = 0; i < state.side.length; i++) {
       var it = state.side[i];
       html += '<button class="sideItem" data-cat="' + i + '" tabindex="0">' +
-              '<span class="si">' + iconFor(it.name) + '</span>' +
+              '<span class="si ' + iconFor(it.name) + '"></span>' +
               '<span class="st">' + Utils.esc(it.name) + '</span>' +
               (it.count ? '<span class="sn">' + it.count + '</span>' : '') +
               '</button>';
@@ -296,10 +305,10 @@
               '<div class="info">' +
                 '<span class="chip">' + Utils.esc(h.group) + '</span>' +
                 '<h1>' + Utils.esc(it.title) + '</h1>' +
-                (live ? '<p>Ahora: ' + Utils.esc(live) + '</p>' : '<p></p>') +
+                '<p>' + Utils.esc(live ? ('Ahora: ' + live) : (it.description || 'Canal en directo')) + '</p>' +
                 '<div class="meta">' +
-                  '<span class="tag live">EN VIVO</span>' +
-                  (live ? '<span class="tag">' + Utils.esc(live) + '</span>' : '') +
+                  '<span class="tag live">&#9654; Reproducir</span>' +
+                  (live ? '<span class="tag ghost">' + Utils.esc(live) + '</span>' : '') +
                 '</div>' +
               '</div></div>';
     }
