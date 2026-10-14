@@ -191,6 +191,10 @@
     el.panel     = $('searchPanel');
     el.count     = $('searchCount');
     el.filters   = $('searchFilters');
+    el.langBtn   = $('langSelect');
+    el.btnPiP    = $('btnPiP');
+    el.langBtn   = $('langSelect');
+    el.btnPiP    = $('btnPiP');
 
     // Que lista esta cargada ahora, para marcarla en el lateral.
     state.activeSource = currentSourceKey();
@@ -316,6 +320,7 @@
           '<code>?cc=mx</code>, <code>?cc=uk</code> o <code>?cc=movies</code>.<br>' +
           'Revisa <code>CONFIG.iptvorg</code> en <code>js/config.js</code>.</div>';
         return;
+      }
       // EPG loading disabled to prevent app hang;
       // guide accessible via Tab Guide
     }).catch(function (e) {
@@ -855,6 +860,7 @@
     el.search.blur();
     // El panel se queda visible; solo se vacia el contador si no se busca.
     if (!state.query && !state.filtro) el.count.textContent = '';
+  }
 
   /* ---------------------------------------------------------------- *
    * Foco
