@@ -1,25 +1,6 @@
-# Artefactos de la muestra analizada
-# Los APK son originales de terceros con licencia ajena y no van al repositorio.
-*.apk
-*.aab
-*.ipa
-*.jar
-*.dex
-*.so
-*.har
-
-# Salidas de analisis y smali generado
-out-*.txt
-out-*.json
-_smali/
-_reference/
-
-# Proyecto de Ghidra: es estado local del analisis, no fuente
-_ghidra_proj/
-
-# Datos de prueba generados
-epg.json
-es.m3u
+# -------------------------------------------------------------------
+# Aplicacion web (lo que se despliega)
+# -------------------------------------------------------------------
 
 # hls.min.js es una dependencia de terceros de 413 KB.
 # Se regenera con:
@@ -28,7 +9,35 @@ es.m3u
 #     https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js
 vendor/
 
+# Datos generados, no versionados
+epg.json
+es.m3u
+
+# Vercel
+.vercel
+
+# -------------------------------------------------------------------
+# Analisis de ingenieria inversa (carpeta analisis/)
+# -------------------------------------------------------------------
+# No es parte de la aplicacion: no se despliega ni se importa desde el
+# codigo. Se ignora entero para que el repositorio contenga solo la app.
+
+analisis/
+
+# Artefactos de las muestras analizadas. Los APK son originales de
+# terceros con licencia ajena y no deben publicarse.
+*.apk
+*.aab
+*.ipa
+*.jar
+*.dex
+*.so
+*.har
+*.pkl
+
+# -------------------------------------------------------------------
 # Sistema y editores
+# -------------------------------------------------------------------
 Thumbs.db
 desktop.ini
 .DS_Store
@@ -41,15 +50,3 @@ desktop.ini
 *.log
 __pycache__/
 *.pyc
-
-# Vercel
-.vercel
-# Arbol smali del APK movil (Xuper 4).apk
-_smali_movil/
-
-# Artefactos pesados del analisis nativo (Fase 9)
-# El .so se regenera con tools/elfscan.py desde el APK
-_ranger44_arm64.so
-_fase9_mem.pkl
-_fase9_triples.json
-_fase9_fdes.json

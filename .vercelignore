@@ -1,5 +1,11 @@
-# Lo que no se sube a Vercel: los APK y el arbol smali son de analisis, no
-# de la aplicacion web, y multiplican el numero de ficheros del despliegue.
+# Lo que NO se sube a Vercel.
+#
+# La aplicacion web es lo unico que se despliega. Todo lo que hay en
+# analisis/ (APKs, arboles smali, proyecto de Ghidra, informes y salidas
+# de herramientas) queda fuera: pesa, no lo usa el codigo y hacia que el
+# despliegue falle o se ralentice.
+analisis/
+
 *.apk
 *.aab
 *.ipa
@@ -7,10 +13,16 @@
 *.dex
 *.so
 *.har
-_smali/
-_smali_movil/
-tools/
-out-*.txt
-out-*.json
-_reference/
+*.pkl
+
+# Ficheros que el analisis escribe mientras se despliega: Vercel los lee
+# en mitad del envio y falla con EBUSY si cambian bajo sus pies.
+*.prof
+*.profm
+*.log
+__pycache__/
+.git/
+
+# Solo se despliega la app. Los *.md quedan fuera para que no se cuelguen
+# como paginas sueltas.
 *.md

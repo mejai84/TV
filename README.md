@@ -4,6 +4,13 @@ Cliente HTML5 para ver televisión en el navegador de un televisor
 (Hisense VIDAA, LG webOS, Samsung Tizen, Fire TV). Sin build, sin framework:
 se abre `index.html` y funciona.
 
+> **Qué hay en este repositorio.** Solo la aplicación web, que es lo que se
+> despliega: `index.html`, `css/`, `js/`, `api/` y `serve.py`. El análisis
+> de ingeniería inversa de APKs que se hizo por separado vive en
+> `analisis/` y **no forma parte de la aplicación**: no se despliega, no se
+> importa desde el código y no es necesario para que la tele funcione.
+> Si solo quieres la app, `analisis/` se puede borrar entero.
+
 ```
 py -3 serve.py --port 8777
 ```
@@ -47,10 +54,12 @@ Todo pasa por `CONFIG.source` en `js/config.js`:
 
 | Valor | Qué hace |
 |---|---|
-| `'demo'` | `streams.json` — tres entradas de prueba, funciona sin red |
-| `'json'` | Tu propio `streams.json` |
-| `'m3u'` | Lista M3U / Xtream. Por defecto: [iptv-org](https://github.com/iptv-org/iptv) |
+| `'iptvorg'` | [iptv-org](https://github.com/iptv-org/iptv). Es la que se usa por defecto |
 | `'provider'` | API con token (ver más abajo) |
+
+Sin parámetros la app carga el índice completo de iptv-org (11 262 canales).
+Para acotarlo, `?cc=es`, `?cc=mx`, `?cc=movies`… También se cambia desde el
+lateral, en la sección **Listas**.
 
 Las URLs de una M3U pasan por el proxy automáticamente. No hay que hacer nada
 más.
