@@ -174,9 +174,22 @@
       buildGroups();
       render();
       startHero();
+      if (!state.items.length) {
+        // Sin esto la pantalla queda en negro sin explicar nada, que es lo
+        // que mas desconcierta cuando una lista remota falla o va vacia.
+        el.shelves.innerHTML =
+          '<div class="epg-empty">No se encontro ninguna lista.<br>' +
+          'Prueba otra fuente: <code>?src=iptvorg&amp;cc=gb</code>, ' +
+          '<code>?src=iptvorg&amp;cc=mx</code> o <code>?src=demo</code>.<br>' +
+          'Revisa <code>CONFIG.iptvorg</code> en <code>js/config.js</code>.</div>';
+        return;
+      }
       return loadEpg();
     }).catch(function (e) {
       toast('No se pudo cargar el catalogo: ' + e.message);
+      el.shelves.innerHTML =
+        '<div class="epg-empty">No se pudo cargar el catalogo.<br>' +
+        Utils.esc(e.message) + '</div>';
     });
   }
 

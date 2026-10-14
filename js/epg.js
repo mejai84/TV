@@ -127,10 +127,12 @@ var Epg = {
       map[ch].push(programs[i]);
     }
     // Orden estable: los canales que tienen algo antes de "ahora" primero.
+    // Ojo: firstOverlap es metodo de Epg, no una funcion suelta. Llamado
+    // sin el prefijo lanza ReferenceError y tumblea toda la guia.
     var now = Date.now();
     order.sort(function (a, b) {
-      var aNow = firstOverlap(map[a], now);
-      var bNow = firstOverlap(map[b], now);
+      var aNow = Epg.firstOverlap(map[a], now);
+      var bNow = Epg.firstOverlap(map[b], now);
       if (aNow === -1 && bNow !== -1) return 1;
       if (aNow !== -1 && bNow === -1) return -1;
       if (aNow !== -1) return aNow - bNow;

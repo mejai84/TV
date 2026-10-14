@@ -32,7 +32,7 @@ function merge(base, extra) {
  * ------------------------------------------------------------------ */
 var CONFIG = {
   /**
-   * Fuente activa: 'demo' | 'json' | 'm3u' | 'provider'
+   * Fuente activa: 'demo' | 'json' | 'm3u' | 'iptvorg' | 'provider'
    *
    * Por defecto 'demo' porque funciona en cualquier sitio, incluido un
    * despliegue estatico como Vercel: son tres streams que ya traen CORS y no
@@ -41,9 +41,31 @@ var CONFIG = {
    * video no.
    *
    * Se puede forzar desde la URL sin editar el fichero:
-   *   index.html?src=m3u
+   *   index.html?src=iptvorg
    */
   source: 'demo',
+
+  /**
+   * Listas de iptv-org (https://github.com/iptv-org/iptv).
+   *
+   * El sitio publica playlists M3U por pais, idioma, categoria y region.
+   * Todas envian Access-Control-Allow-Origin: *, asi que se pueden leer
+   * directamente desde el navegador sin proxy.
+   *
+   * Opciones de 'country':
+   *   ''       -> index.m3u completo (unas 11200 cadenas, 2.5 MB)
+   *   'es'     -> countries/es.m3u (unas 200 cadenas, 80 KB)
+   *   'lat'    -> regions/lat.m3u
+   *   'uk'     -> languages/uk.m3u
+   *   'movies' -> categories/movies.m3u
+   *
+   * Recomendado dejar un pais o una categoria en vez del completo: 2.5 MB
+   * de M3U tardan bastante en parsearse en el motor de un televisor viejo.
+   */
+  iptvorg: {
+    country: 'es',
+    base: 'https://iptv-org.github.io/iptv'
+  },
 
   // Marca visible en la interfaz (multi-tenant, estilo portal).
   brand: {
@@ -60,6 +82,14 @@ var CONFIG = {
   //   url: XML -> XMLTV (comprimido con .gz no se soporta en el navegador;
   //                  descomprime antes y pon un .xml)
   //   url: JSON-> array de programas (ver Epg.normalize en epg.js)
+  //
+  // Sobre iptv-org: el repositorio iptv-org/epg NO aloja el XML, solo
+  // agrega guias de terceros y las lista en GUIDES.md. De las que quedan
+  // en pie, la unica con XML completo no envia Access-Control-Allow-Origin,
+  // asi que el navegador la bloquea y solo se lee a traves del proxy de
+  // serve.py. epg.pw/xmltv/epg_XX.xml si envia CORS, pero la de Espana
+  // esta congelada en 2023; las de US y GB se actualizan a diario.
+  // Para Espana hoy la opcion es bajar el XML y servirlo desde aqui.
   epg: {
     url: 'epg.json',
     // Asocia los programas de la guia con los canales del catalogo.
@@ -227,14 +257,58 @@ var PROXY = {
  * ADAPTER: M3U / Xtream
  * ------------------------------------------------------------------ */
 function M3UAdapter(opts) {
-  this.url = opts.url;
+  // Se acepta una sola url o una lista de candidatas: en ese caso se van
+  // probando hasta que una devuelva canales.
+  this.urls = opts.urls || [opts.url];
+  this.url = this.urls[0];
   this.label = opts.label || 'M3U';
+  // Si es falso se respeta el group-title tal cual venga en la lista.
+  this.mergeCategories = (opts.mergeCategories !== false);
+}
+
+/**
+ * iptv-org encadena varias categorias con punto y coma en el group-title
+ * ("Classic;Comedy;Public;Series"), asi que sin limpiar una lista de
+ * Espana produce 43 grupos y el lateral del televisor queda inservible. Se queda
+ * con la primera, que es la de contenido, y el resto se descarta.
+ *
+ * "Undefined" no es una categoria: es la que asigna iptv-org cuando el
+ * canal no tiene ninguna, y se traduce a "Otros".
+ */
+function primaryGroup(name) {
+  var parts = Utils.trim(String(name || '')).split(';');
+  var first = Utils.trim(parts[0]);
+  if (!first || first.toLowerCase() === 'undefined') return 'Otros';
+  return first;
 }
 
 M3UAdapter.prototype.list = function () {
   var self = this;
-  return Utils.fetch(this.url, null, CONFIG.retry.timeoutMs).then(function (text) {
-    var raw = Utils.parseM3U(text);
+  var index = 0;
+
+  function attempt() {
+    if (index >= self.urls.length) {
+      // Se agotaron las candidatas: se devuelve la ultima URL para que el
+      // error diga algo util y no un "undefined" sin contexto.
+      return Promise.reject(new Error(
+        'Ninguna lista de iptv-org devolvio canales (probadas: ' + self.urls.join(', ') + ')'
+      ));
+    }
+    var url = self.urls[index++];
+    return Utils.fetch(url, null, CONFIG.retry.timeoutMs).then(function (text) {
+      var raw = Utils.parseM3U(text);
+      // Una lista vacia o un 404 con cuerpo de error no cuenta: se pasa a
+      // la siguiente candidata antes de rendah.
+      if (!raw.length) return attempt();
+      self.url = url;
+      return raw;
+    }).catch(function (e) {
+      if (index >= self.urls.length) throw e;
+      return attempt();
+    });
+  }
+
+  return attempt().then(function (raw) {
     var out = [];
     for (var i = 0; i < raw.length; i++) {
       var it = raw[i];
@@ -242,7 +316,7 @@ M3UAdapter.prototype.list = function () {
         id: it.id,
         title: it.title || ('Canal ' + (i + 1)),
         kind: 'live',
-        group: it.group,
+        group: self.mergeCategories ? primaryGroup(it.group) : (it.group || 'Otros'),
         poster: it.poster,
         year: '',
         description: ''
@@ -567,19 +641,65 @@ ProviderAdapter.prototype.epg = function () {
 function activeSource() {
   try {
     var m = /[?&]src=([a-z]+)/i.exec(window.location.search || '');
-    if (m && ['demo', 'json', 'm3u', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
+    if (m && ['demo', 'json', 'm3u', 'iptvorg', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
       return m[1].toLowerCase();
     }
   } catch (e) { /* file:// o sandbox sin location.search */ }
   return CONFIG.source;
 }
 
+/**
+ * Compone las URLs candidatas de una playlist de iptv-org.
+ *
+ * El sitio publica las listas en carpetas por tipo, asi que un mismo valor
+ * puede ser un pais, un idioma, una categoria o una region. Ademas los
+ * codigos no siempre son los que uno espera (Reino Unido es 'gb', no 'uk'),
+ * asi que se devuelven varias candidatas y el adaptador se queda con la
+ * primera que traiga canales. Sin esto, un codigo mal escrito dejaba la
+ * pantalla vacia sin decir nada.
+ */
+function iptvOrgUrls(key) {
+  var cfg = CONFIG.iptvorg || {};
+  var base = cfg.base || 'https://iptv-org.github.io/iptv';
+  key = Utils.trim(String(key || '')).toLowerCase();
+
+  if (!key) return [base + '/index.m3u'];
+
+  // El orden importa: 'lat' existe como region y no como pais, y
+  // 'movies' como categoria y no como pais. Se prueban primero los
+  // identificadores geograficos (lo habitual en un mando de TV) y luego el
+  // contenido. Con otro orden, 'lat' se comia una lista de idioma de dos
+  // canales en vez de la regional.
+  var kinds = ['countries', 'regions', 'categories', 'languages'];
+  if (cfg.kind && kinds.indexOf(cfg.kind) > -1) {
+    return [base + '/' + cfg.kind + '/' + key + '.m3u'];
+  }
+
+  var urls = [], i;
+  for (i = 0; i < kinds.length; i++) {
+    urls.push(base + '/' + kinds[i] + '/' + key + '.m3u');
+  }
+  // Al final queda siempre el indice completo, que no puede fallar.
+  urls.push(base + '/index.m3u');
+  return urls;
+}
+
 function buildAdapter(name) {
   switch (name) {
     case 'm3u':
-      // iptv-org: coleccion abierta de cadenas en abierto (TDT, etc).
-      // Listos disponibles en https://github.com/iptv-org/iptv
-      return new M3UAdapter({ url: 'https://iptv-org.github.io/iptv/countries/es.m3u' });
+      return new M3UAdapter({
+        urls: iptvOrgUrls((CONFIG.iptvorg || {}).country)
+      });
+    case 'iptvorg':
+      // iptv-org: coleccion abierta de cadenas en abierto, actualizada a
+      // diario. Se puede probar otro pais sin editar ficheros:
+      //   index.html?src=iptvorg&cc=gb
+      var cc = (CONFIG.iptvorg || {}).country || 'es';
+      try {
+        var m = /[?&]cc=([a-z0-9-]+)/i.exec(window.location.search || '');
+        if (m) cc = m[1].toLowerCase();
+      } catch (e) { /* sin location.search */ }
+      return new M3UAdapter({ urls: iptvOrgUrls(cc) });
     case 'json':
       return new JsonAdapter({ url: 'streams.json' });
     case 'provider':

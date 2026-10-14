@@ -43,3 +43,10 @@ __pycache__/
 .vercel
 # Arbol smali del APK movil (Xuper 4).apk
 _smali_movil/
+
+# Artefactos pesados del analisis nativo (Fase 9)
+# El .so se regenera con tools/elfscan.py desde el APK
+_ranger44_arm64.so
+_fase9_mem.pkl
+_fase9_triples.json
+_fase9_fdes.json

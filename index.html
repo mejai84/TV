@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#04060a">
+<!-- Los logotipos de iptv-org estan alojados en imgur, que devuelve 403
+     en cuanto la peticion lleva cabecera Referer. El navegador la manda
+     siempre, asi que sin esto ninguna caratula carga. -->
+<meta name="referrer" content="no-referrer">
 <title>Xuper TV</title>
 <link rel="stylesheet" href="css/app.css?v=30">
 </head>
@@ -74,9 +78,9 @@
 
 <!--?v=8 fuerza recarga: el cache del navegador de un televisor sobrevive
      varias sesiones y sigue sirviendo la version anterior de los scripts. -->
-<script src="js/config.js?v=20"></script>
-<script src="js/epg.js?v=8"></script>
+<script src="js/config.js?v=32"></script>
+<script src="js/epg.js?v=30"></script>
 <script src="js/player.js?v=8"></script>
-<script src="js/app.js?v=20"></script>
+<script src="js/app.js?v=31"></script>
 </body>
 </html>
