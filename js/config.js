@@ -243,6 +243,21 @@ var Utils = {
     return Utils.trim(t);
   },
 
+  /**
+   * Limpia el titulo de un canal para que concuerde con su logotipo.
+   * iptv-org anade etiquetas de calidad y geo-bloqueo al final: "(720p)",
+   * "(1080p)", "(576i)", "[Geo-blocked]". El logo es la marca limpia, asi
+   * que se quitan esas etiquetas para que nombre e imagen coincidan.
+   */
+  cleanTitle: function (s) {
+    var t = Utils.trim(s);
+    // Etiquetas entre corchetes al final: [Geo-blocked], [Not 24/7], etc.
+    t = t.replace(/\s*\[[^\]]*\]\s*$/g, '');
+    // Resolucion entre parentesis al final: (720p), (1080p), (576i), (480p).
+    t = t.replace(/\s*\(\d{3,4}[pi]\)\s*$/i, '');
+    return Utils.trim(t);
+  },
+
   /** Escapa texto antes de inyectarlo en el DOM. */
   esc: function (s) {
     return String(s === null || s === undefined ? '' : s)
@@ -350,7 +365,7 @@ M3UAdapter.prototype.list = function () {
       var it = raw[i];
       out.push({
         id: it.id,
-        title: it.title || ('Canal ' + (i + 1)),
+        title: Utils.cleanTitle(it.title || ('Canal ' + (i + 1))),
         kind: 'live',
         group: self.mergeCategories ? primaryGroup(it.group) : (it.group || 'Otros'),
         poster: it.poster,

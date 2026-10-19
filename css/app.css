@@ -285,9 +285,9 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   align-items: center;
   width: 100%;
   max-width: 100%;
-  min-height: 74px;
-  margin: 0 0 8px;
-  padding: 8px 12px;
+  min-height: 62px;
+  margin: 0 0 6px;
+  padding: 6px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   background: rgba(15, 28, 48, 0.72);
@@ -296,20 +296,20 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
 }
 .card.verticalCard .thumb {
-  flex: 0 0 116px;
-  width: 116px;
-  padding-bottom: 65px;
-  margin-right: 14px;
+  flex: 0 0 88px;
+  width: 88px;
+  padding-bottom: 50px;
+  margin-right: 12px;
   box-shadow: none;
 }
 .card.verticalCard .ttl {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   color: #eaf2ff;
 }
 .card.verticalCard .onair {
-  margin: 3px 0 0;
-  font-size: 12px;
+  margin: 2px 0 0;
+  font-size: 11px;
 }
 .card.verticalCard:hover,
 .card.verticalCard.focused {
@@ -331,11 +331,11 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   gap: 10px;
   width: 100%;
   max-width: 100%;
-  min-height: 52px;
-  margin: 4px 0 8px;
-  padding: 10px 16px;
+  min-height: 46px;
+  margin: 4px 0 6px;
+  padding: 8px 14px;
   font-family: 'Outfit', sans-serif;
-  font-size: 14px; font-weight: 700;
+  font-size: 13px; font-weight: 700;
   color: #eaf2ff;
   background: #142338;
   border: 1px solid #1e3050;
@@ -350,12 +350,35 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   background: #1c304d;
   box-shadow: 0 0 0 2px rgba(93, 180, 255, 0.75);
 }
-.btnMasFlecha { color: #5db4ff; font-size: 12px; }
-.btnMasCount { color: #8ba0bd; font-size: 12px; font-weight: 600; }
+.btnMasFlecha { color: #5db4ff; font-size: 11px; }
+.btnMasCount { color: #8ba0bd; font-size: 11px; font-weight: 600; }
 
-@media (max-width: 640px) {
-  .card.verticalCard .thumb { flex-basis: 96px; width: 96px; padding-bottom: 54px; }
+/* Responsive: la ficha se adapta al ancho y al alto disponible. */
+@media (max-width: 1100px) {
+  .card.verticalCard { min-height: 56px; }
+  .card.verticalCard .thumb { flex-basis: 76px; width: 76px; padding-bottom: 43px; }
   .card.verticalCard .ttl { font-size: 13px; }
+}
+
+@media (max-width: 620px) {
+  .rows { padding: 12px 12px 18px; }
+  .card.verticalCard { min-height: 50px; padding: 5px 8px; }
+  .card.verticalCard .thumb { flex-basis: 64px; width: 64px; padding-bottom: 36px; margin-right: 10px; }
+  .card.verticalCard .ttl { font-size: 12px; }
+  .card.verticalCard .onair { font-size: 10px; }
+  .btnMas { min-height: 40px; font-size: 12px; }
+}
+
+@media (max-height: 700px) {
+  .card.verticalCard { min-height: 48px; margin-bottom: 4px; }
+  .card.verticalCard .thumb { flex-basis: 60px; width: 60px; padding-bottom: 34px; }
+  .card.verticalCard .ttl { font-size: 12px; }
+}
+
+@media (min-width: 1800px) {
+  .card.verticalCard { min-height: 70px; }
+  .card.verticalCard .thumb { flex-basis: 104px; width: 104px; padding-bottom: 58px; }
+  .card.verticalCard .ttl { font-size: 16px; }
 }
 
 /* ---------------- Guia ---------------- */
@@ -784,7 +807,8 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
 }
 
 @media (max-width: 380px) {
-  .card.verticalCard .thumb { flex-basis: 84px; width: 84px; padding-bottom: 48px; }
+  .card.verticalCard .thumb { flex-basis: 56px; width: 56px; padding-bottom: 32px; }
+  .card.verticalCard .ttl { font-size: 11px; }
 }
 
 @media (min-width: 1800px) {
