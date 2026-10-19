@@ -144,27 +144,28 @@
     shown: {},           // { shelfIndex: caratulas pintadas hasta ahora }
     todo: null,          // catalogo completo agrupado y traducido
     todoBase: 0,
-    indice: null,        // indice de busqueda { n, t, g }
-    filtro: '',          // categoria activa del buscador ('' = todas)
+    indice: null,        // indice de busqueda { n, t }
+    filtro: '',          // ya no se usa: sin filtros de categoria
     byId: {},
     onAir: {},
     epgItems: [],
-    hero: [],              // [{ item, group }]
+    hero: [],              // sin carrusel: se conserva vacio
     heroAt: 0,
     stopped: false,       // el canal se detuvo a proposito desde el reproductor
     playing: null,        // canal que se esta emitiendo, para poder reanudarlo
     query: '',
     screen: 'catalog',
+    zone: 'shelf',
     shelf: 0,
     card: 0,
     favs: [],              // Lista de IDs de canales favoritos guardados en localStorage
     recents: [],           // Historial de canales reproducidos recientemente
-    isFavsFilter: false
+    isFavsFilter: false,
+    masFocus: false        // el foco esta en el boton "Ver más"
   };
 
   var player = null;
   var guide = null;
-  var heroTimer = null;
   var el = {};
   function $(id) { return document.getElementById(id); }
 
@@ -173,8 +174,6 @@
    * ---------------------------------------------------------------- */
   function boot() {
     el.shelves   = $('shelves');
-    el.hero      = $('hero');
-    el.cats      = $('categories');
     el.status    = $('playerStatus');
     el.playerUI  = $('playerScreen');
     el.catalogUI = $('catalogScreen');
@@ -191,16 +190,8 @@
     el.toast     = $('toast');
     el.panel     = $('searchPanel');
     el.count     = $('searchCount');
-    el.filters   = $('searchFilters');
     el.langBtn   = $('langSelect');
     el.btnPiP    = $('btnPiP');
-    el.catsRail  = $('categories');
-    el.cats      = $('categoriesList') || $('categories');
-    el.catsBackdrop = $('categoriesBackdrop');
-    el.catBadge  = $('catBadge');
-    el.catBanner = $('activeCategoryBanner');
-    el.catBannerTitle = $('catBannerTitle');
-    el.catBannerCount = $('catBannerCount');
 
     // Que lista esta cargada ahora, para marcarla en el lateral.
     state.activeSource = currentSourceKey();
@@ -237,6 +228,7 @@
       searchTimeout = setTimeout(function () {
         state.query = Utils.trim(el.search.value);
         state.zone = 'shelf';
+        state.shelf = 0;
         state.card = 0;
         buildGroups();
         updateSearchUi();
@@ -253,15 +245,6 @@
     if (btnOpenSearch) btnOpenSearch.addEventListener('click', function () { toggleSearch(); });
     var btnCloseSearch = $('btnCloseSearch');
     if (btnCloseSearch) btnCloseSearch.addEventListener('click', function () { closeSearch(); });
-    var btnToggleCat = $('btnToggleCategories');
-    if (btnToggleCat) btnToggleCat.addEventListener('click', function () { toggleCategories(); });
-    var btnCloseCat = $('btnCloseCategories');
-    if (btnCloseCat) btnCloseCat.addEventListener('click', function () { closeCategories(); });
-    if (el.catsBackdrop) el.catsBackdrop.addEventListener('click', function () { closeCategories(); });
-    var btnBannerChange = $('btnBannerChangeCat');
-    if (btnBannerChange) btnBannerChange.addEventListener('click', function () { openCategories(); });
-    var btnBannerClear = $('btnBannerClearCat');
-    if (btnBannerClear) btnBannerClear.addEventListener('click', function () { clearSelectedCategory(); });
 
     var btnGuide = $('btnGuide');
     if (btnGuide) btnGuide.addEventListener('click', function () { showScreen('guide'); });
@@ -284,7 +267,7 @@
     var btnFs = $('btnFullscreen');
     if (btnFs) btnFs.addEventListener('click', function () { toggleFullscreen(); });
     var btnSource = $('btnSourceSelect');
-    if (btnSource) btnSource.addEventListener('click', function () { openCategories(); });
+    if (btnSource) btnSource.addEventListener('click', function () { cycleSource(); });
 
     // Cargar favoritos y recientes
     loadFavorites();
@@ -311,8 +294,6 @@
         });
       }
     });
-
-    bindSwipe();
 
     applyBrand();
 
@@ -351,8 +332,6 @@
       state.byId = {};
       for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
       buildGroups();
-      render();
-      startHero();
       if (!state.items.length) {
         // Sin esto la pantalla queda en negro sin explicar nada, que es lo
         // que mas desconcierta cuando una lista remota falla o va vacia.
@@ -374,83 +353,39 @@
   }
 
   /* ---------------------------------------------------------------- *
-   * Agrupacion
+   * Lista unica. Sin categorias, sin carrusel: todo el catalogo vive en
+   * una sola lista y el buscador la recorre entera.
    * ---------------------------------------------------------------- */
   function buildGroups() {
-    // El tema se fija antes de nada: al arrancar, la pantalla ya aparece
-    // con el color de la primera categoria en vez de arrancar neutra y
-    // cambiar despues.
     applyTheme('all');
-
-    // El catalogo completo se monta una vez y se reutiliza: antes se
-    // reconstruia en cada pulsacion de tecla al buscar, y con 11262
-    // canales eso hacia que el buscador se trabara.
-    if (!state.todo || state.todoBase !== state.items.length) {
-      var mapa = {}, orden = [];
-      for (var j = 0; j < state.items.length; j++) {
-        var it = state.items[j];
-        var g = it.group || 'Otros';
-        if (!Object.prototype.hasOwnProperty.call(mapa, g)) { mapa[g] = []; orden.push(g); }
-        mapa[g].push(it);
-      }
-
-      // Se traduce la categoria y se le asigna un tema antes de pintar nada:
-      // los nombres de iptv-org vienen en ingles ('Sports', 'News') y salen
-      // tal cual si no se pasan por aqui.
-      var gs = [];
-      for (var k = 0; k < orden.length; k++) {
-        var par = categoriaEs(orden[k]);
-        gs.push({ name: par[0], theme: par[1], items: mapa[orden[k]] });
-      }
-
-      // Orden alfabetico: el lateral queda ordenado y es predecible.
-      gs.sort(function (a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
-
-      // "Todos" primero, y una estanteria deccion destacada arriba.
-      gs.unshift({ name: 'Todos los canales', theme: 'all', items: state.items.slice() });
-      state.todo = gs;
-      state.todoBase = state.items.length;
-      state.indice = null;
-    }
-
     state.shown = {};
 
-    if (state.query || state.filtro) {
-      var hits = buscar(state.query, state.filtro);
-      var tema = state.filtro ? (temaDeFiltro(state.filtro) || 'all') : 'all';
-      state.groups = [{ name: 'Resultados: ' + hits.length, theme: tema,
-                        items: hits, artificial: true }];
-      buildSide();
-      applyTheme(tema);
-      render();
-      return;
+    if (state.query) {
+      var hits = buscar(state.query);
+      state.groups = [{ name: 'Resultados', theme: 'all', items: hits,
+                        artificial: true, all: true }];
+    } else {
+      state.groups = [{ name: 'Todos los canales', theme: 'all',
+                        items: state.items }];
     }
 
-    state.groups = state.todo;
-    buildSide();
-    buildHero();
-    renderFilters();
     updateSearchUi();
+    state.masFocus = false;
+    if (!state.groups[0] || state.card >= state.groups[0].items.length) state.card = 0;
+    render();
   }
 
   /**
-   * Busca sobre TODO el catalogo, no solo dentro del grupo abierto, y con
-   * el filtro de categoria si hay uno.
-   *
-   * Antes comparaba el titulo contra el grupo visible y en pantalla
-   * cabian 40 resultados, asi que con la lista de iptv-org escribir "esp"
-   * no encontraba nada util.
+   * Busca sobre TODO el catalogo y devuelve todas las coincidencias.
+   * No hay filtros: lo que coincide se pinta entero.
    */
-  function buscar(texto, filtro) {
-    // Indice una vez: titulo normalizado y categoria de cada canal.
+  function buscar(texto) {
     if (!state.indice) {
       state.indice = [];
       for (var i = 0; i < state.items.length; i++) {
-        var par = categoriaEs(state.items[i].group || 'Otros');
         state.indice.push({
           n: Utils.normTitle(state.items[i].title),
-          t: String(state.items[i].title),
-          g: par[0]
+          t: String(state.items[i].title).toLowerCase()
         });
       }
     }
@@ -460,50 +395,22 @@
     var out = [];
     for (var k = 0; k < state.indice.length; k++) {
       var e = state.indice[k];
-      if (filtro && e.g !== filtro) continue;
-      if (qn && e.n.indexOf(qn) === -1 && e.t.toLowerCase().indexOf(q) === -1) continue;
+      if (qn && e.n.indexOf(qn) === -1 && e.t.indexOf(q) === -1) continue;
       out.push(state.items[k]);
     }
     return out;
   }
 
-  function temaDeFiltro(nombre) {
-    for (var i = 0; i < state.todo.length; i++) {
-      if (state.todo[i].name === nombre) return state.todo[i].theme;
+  /** Recorre las listas de iptv-org en orden y recarga con la elegida. */
+  function cycleSource() {
+    var cur = currentSourceKey();
+    var idx = -1;
+    for (var i = 0; i < SOURCES.length; i++) {
+      if (SOURCES[i].key === cur) { idx = i; break; }
     }
-    return null;
-  }
-
-  /**
-   * Lateral: selector de origen arriba, una entrada por grupo y los accesos
-   * fijos al final.
-   *
-   * El selector no es un lujo: iptv-org publica 11262 canales repartidos en
-   * listas por pais, region y categoria, y sin un sitio visible para
-   * cambiar de lista solo se ve un countries/es.m3u con 324 canales y parece
-   * que faltan todos los demas.
-   */
-  function buildSide() {
-    var side = [];
-    side.push({ type: 'head', name: 'Personal' });
-    side.push({ type: 'favs', name: '⭐ Mis Favoritos', count: state.favs ? state.favs.length : 0 });
-    side.push({ type: 'recents', name: '🕒 Vistos Recientes', count: state.recents ? state.recents.length : 0 });
-
-    side.push({ type: 'head', name: 'Listas y Países' });
-    for (var s = 0; s < SOURCES.length; s++) {
-      side.push({ type: 'source', key: SOURCES[s].key,
-                  name: SOURCES[s].name, count: 0 });
-    }
-    side.push({ type: 'head', name: 'Canales por Categoría' });
-    var allGroups = state.todo || state.groups;
-    for (var i = 0; i < allGroups.length; i++) {
-      side.push({ type: 'group', idx: i, name: allGroups[i].name, count: allGroups[i].items.length });
-    }
-    side.push({ type: 'head', name: 'Aplicacion' });
-    side.push({ type: 'search', name: 'Buscar / Explorar', count: 0 });
-    side.push({ type: 'guide',  name: 'Guia de TV', count: 0 });
-    state.side = side;
-    if (state.cat >= side.length) state.cat = 0;
+    var next = SOURCES[(idx + 1 + SOURCES.length) % SOURCES.length];
+    toast('Lista: ' + next.name);
+    openSource(next.key);
   }
 
   /** Cambia de lista recargando con la fuente elegida en la URL. */
@@ -512,255 +419,23 @@
     location.href = 'index.html' + (key ? '?cc=' + encodeURIComponent(key) : '');
   }
 
-  /**
-   * Destacados del carrusel: se reparte el catalogo para que no salgan cinco
-   * canales del mismo grupo, y se prefieren los que traen logotipo.
-   */
-  function buildHero() {
-    var pool = (state.selectedCategory && state.groups && state.groups[0])
-      ? state.groups[0].items
-      : (state.items || []);
-    var picked = [], used = {};
-
-    for (var pass = 0; pass < 2 && picked.length < 8; pass++) {
-      var step = Math.max(1, Math.floor(pool.length / 8));
-      for (var i = 0; i < pool.length && picked.length < 8; i += step) {
-        var it = pool[i];
-        if (!it || used[it.id]) continue;
-        if (pass === 0 && !it.poster) continue;    // 1a pasada: solo con imagen
-        used[it.id] = 1;
-        picked.push({ item: it, group: it.group || 'Destacado' });
-      }
-    }
-
-    state.hero = picked;
-    if (state.heroAt >= picked.length) state.heroAt = 0;
-  }
-
   /* ---------------------------------------------------------------- *
    * Render
    * ---------------------------------------------------------------- */
   function render() {
-    renderCategories();
-    renderHero();
     renderShelves();
     paintFocus();
   }
 
-  function renderCategories() {
-    var html = '';
-    var target = el.cats;
-    if (!target) return;
-
-    for (var i = 0; i < state.side.length; i++) {
-      var it = state.side[i];
-
-      if (it.type === 'head') {
-        html += '<div class="sidehead">' + Utils.esc(it.name) + '</div>';
-        continue;
-      }
-
-      var icon = (it.type === 'source') ? 'list' : iconFor(it.name);
-      var isCurrent = (it.type === 'group' && (state.selectedCategory ? it.name === state.selectedCategory : it.name === 'Todos los canales'));
-
-      html += '<button class="sideItem' + (it.type === 'source' ? ' isSource' : '') + (isCurrent ? ' active' : '') +
-              '" data-cat="' + i + '" tabindex="0">' +
-              '<span class="si ' + icon + '"></span>' +
-              '<span class="st">' + Utils.esc(it.name) + '</span>' +
-              (it.count ? '<span class="sn">' + it.count + '</span>' : '') +
-              '</button>';
-    }
-    target.innerHTML = html;
-
-    var nodes = target.querySelectorAll('.sideItem');
-    for (var j = 0; j < nodes.length; j++) {
-      (function (n) {
-        n.addEventListener('click', function () {
-          // El indice sale del propio nodo, no de su posicion en el DOM:
-          // el lateral incluye separadores que no son .sideItem, asi que
-          // el numero de orden en la lista no coincide con j y el foco
-          // acababa en la entrada equivocada.
-          selectCategory(parseInt(n.getAttribute('data-cat'), 10));
-        });
-      })(nodes[j]);
-    }
-  }
-
-  function renderHero() {
-    if (!state.hero.length) {
-      el.hero.innerHTML = '<div class="cardelaEmpty">Sin destacados todavia. ' +
-        'Revisa <code>CONFIG.source</code> en <code>js/config.js</code>.</div>';
-      return;
-    }
-
-    var html = '<div class="cardelaTrack" id="heroTrack">';
-    for (var i = 0; i < state.hero.length; i++) {
-      var h = state.hero[i];
-      var it = h.item;
-      var live = state.onAir[it.id] || state.onAir[it.tvgId];
-
-      html += '<div class="slide" data-slide="' + i + '">';
-      html += it.poster
-        ? '<div class="artbg" style="background-image:url(\'' + Utils.esc(it.poster) + '\')"></div>'
-        : '<div class="artbg blank"></div>';
-      if (it.poster) {
-        html += '<img class="art" src="' + Utils.esc(it.poster) + '" alt="" ' +
-                'onerror="this.className=\'art blank\';this.remove();">';
-      }
-      html += '<div class="scrim"></div>' +
-              '<div class="info">' +
-                '<span class="chip">' + Utils.esc(h.group) + '</span>' +
-                '<h1>' + Utils.esc(it.title) + '</h1>' +
-                '<p>' + Utils.esc(live ? ('Ahora: ' + live) : (it.description || 'Canal en directo')) + '</p>' +
-                '<div class="meta">' +
-                  '<span class="tag live">&#9654; Reproducir</span>' +
-                  (live ? '<span class="tag ghost">' + Utils.esc(live) + '</span>' : '') +
-                '</div>' +
-              '</div></div>';
-    }
-    html += '</div>' +
-            '<div class="edge l"></div><div class="edge r"></div>' +
-            '<div class="cardelaDots" id="heroDots">';
-    for (var d = 0; d < state.hero.length; d++) {
-      html += '<i data-dot="' + d + '"></i>';
-    }
-    html += '</div>';
-
-    el.hero.innerHTML = html;
-
-    var slides = el.hero.querySelectorAll('.slide');
-    for (var s = 0; s < slides.length; s++) {
-      (function (n) {
-        n.addEventListener('click', function () {
-          var idx = parseInt(n.getAttribute('data-slide'), 10);
-          state.heroAt = idx;
-          paintFocus();
-          var h = state.hero[idx];
-          if (h) playItem(h.item);
-        });
-      })(slides[s]);
-    }
-
-    var dots = el.hero.querySelectorAll('.cardelaDots i');
-    for (var q = 0; q < dots.length; q++) {
-      (function (n) {
-        n.addEventListener('click', function (e) {
-          e.stopPropagation();
-          state.heroAt = parseInt(n.getAttribute('data-dot'), 10);
-          paintFocus();
-        });
-      })(dots[q]);
-    }
-
-    paintHero();
-  }
-
-  function paintHero() {
-    var track = $('heroTrack');
-    if (track) track.style.transform = 'translateX(' + (-100 * state.heroAt) + '%)';
-
-    var slides = el.hero.querySelectorAll('.slide');
-    for (var i = 0; i < slides.length; i++) {
-      slides[i].className = slides[i].className.replace(/\s*active\b/, '');
-    }
-    if (slides[state.heroAt]) slides[state.heroAt].className += ' active';
-
-    var dots = el.hero.querySelectorAll('.cardelaDots i');
-    for (var j = 0; j < dots.length; j++) {
-      dots[j].className = (j === state.heroAt) ? 'on' : '';
-    }
-  }
-
-  /**
-   * Deslizar el carrusel con el dedo. En televisor esto no pasa, porque
-   * ahi se mueve con el D-pad; se registra igualmente porque solo se
-   * dispara si el dedo toca la pantalla.
-   */
-  function bindSwipe() {
-    var x0 = 0, y0 = 0, tracking = false;
-
-    el.hero.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) return;
-      tracking = true;
-      x0 = e.touches[0].clientX;
-      y0 = e.touches[0].clientY;
-    }, false);
-
-    el.hero.addEventListener('touchend', function (e) {
-      if (!tracking) return;
-      tracking = false;
-      var t = e.changedTouches[0];
-      if (!t) return;
-
-      var dx = t.clientX - x0, dy = t.clientY - y0;
-      // Solo si el gesto fue claramente horizontal: si el dedo se fue
-      // hacia arriba es un scroll y no debe cambiar de slide.
-      if (Math.abs(dx) < 45 || Math.abs(dy) > Math.abs(dx)) return;
-
-      var next = state.heroAt + (dx < 0 ? 1 : -1);
-      if (next >= 0 && next < state.hero.length) {
-        state.heroAt = next;
-        paintFocus();
-      }
-    }, false);
-  }
-
   /* ---------------------------------------------------------------- *
-   * Buscador: filtros por categoria y contador de resultados
+   * Buscador: contador de resultados
    * ---------------------------------------------------------------- */
-  function renderFilters() {
-    if (!state.todo) { el.filters.innerHTML = ''; return; }
-
-    // Solo las categorias con contenido; "Todos los canales" no aporta
-    // como filtro porque es lo mismo que no filtrar.
-    var cats = [], i;
-    for (i = 1; i < state.todo.length; i++) cats.push(state.todo[i].name);
-    cats.sort(function (a, b) { return a < b ? -1 : (a > b ? 1 : 0); });
-
-    var html = '<button class="chipFilter' + (state.filtro ? '' : ' on') +
-               '" data-f="" tabindex="0">Todas</button>';
-    // Chip "En vivo": solo canales que emiten ahora
-    html += '<button class="chipFilter' + (state.onlyLive ? ' on' : '') +
-              '" data-f="en-vivo" tabindex="0">En vivo</button>';
-    for (i = 0; i < cats.length; i++) {
-      html += '<button class="chipFilter' + (state.filtro === cats[i] ? ' on' : '') +
-              '" data-f="' + Utils.esc(cats[i]) + '" tabindex="0">' +
-              Utils.esc(cats[i]) + '</button>';
-    }
-    el.filters.innerHTML = html;
-
-    var chips = el.filters.querySelectorAll('.chipFilter');
-    for (var j = 0; j < chips.length; j++) {
-      (function (n) {
-        n.addEventListener('click', function () {
-          var f = n.getAttribute('data-f');
-          // Chip "En vivo": alterna solo canales en emision
-          if (f === 'en-vivo') {
-            state.onlyLive = !state.onlyLive;
-            state.card = 0;
-            buildGroups();
-            updateSearchUi();
-            renderFilters();
-            return;
-          }
-          state.filtro = f;
-          state.card = 0;
-          buildGroups();
-          updateSearchUi();
-          renderFilters();
-        });
-      })(chips[j]);
-    }
-  }
 
   function updateSearchUi() {
-    // El panel queda siempre a la vista: con 11262 canales el buscador es
-    // la navegacion principal, no algo escondido. Solo el contador depende
-    // de si se esta buscando.
+    // El panel queda siempre a la vista: con mas de 11000 canales el
+    // buscador es la navegacion principal, no algo escondido.
     el.panel.className = 'searchPanel on';
-    var buscando = !!(state.query || state.filtro);
-
-    if (!buscando) { el.count.textContent = ''; return; }
+    if (!state.query) { el.count.textContent = ''; return; }
 
     var n = state.groups.length ? state.groups[0].items.length : 0;
     el.count.textContent = n + (n === 1 ? ' canal' : ' canales') +
@@ -787,161 +462,92 @@
     localStorage.setItem('tv_lang', state.lang);
   }
 
-  function isVerticalResults() {
-    return state.groups.length === 1 &&
-      !!(state.query || state.filtro || state.selectedCategory || state.isFavsFilter);
-  }
-
+  /* ---------------------------------------------------------------- *
+   * Lista vertical. Una sola columna: se recorre con arriba/abajo y,
+   * cuando quedan canales por pintar, aparece un boton "Ver más".
+   * ---------------------------------------------------------------- */
   function renderShelves() {
-    if (!state.groups.length) {
+    var g = state.groups[0];
+    if (!g) {
       el.shelves.innerHTML = '<div class="epg-empty">Nada que mostrar.<br>' +
         'Revisa <code>CONFIG.source</code> en <code>js/config.js</code>.</div>';
       return;
     }
 
-    var html = '';
-    var verticalResults = isVerticalResults();
-    // Se muestran las 14 estanterias alrededor del foco para no pintar
-    // 44 listas de 300 canales cada una en cada repintado.
-    var from = Math.max(0, state.shelf - 4);
-    var to = Math.min(state.groups.length, from + 9);
+    var total = g.items.length;
+    var limit = Math.min(total, state.shown[0] || CHUNK);
+    var hayMas = limit < total;
 
-    for (var s = from; s < to; s++) {
-      var g = state.groups[s];
-      html += '<section class="shelf" data-shelf="' + s + '">' +
-                '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
-                '<em>' + g.items.length + ' canales</em><span class="rule"></span></div>' +
-                '<div class="row' + (verticalResults ? ' verticalResults' : '') + '" id="row-' + s + '">';
+    var html = '<section class="shelf" data-shelf="0">' +
+               '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
+               '<em>' + total + (total === 1 ? ' canal' : ' canales') + '</em>' +
+               '</div><div class="row verticalResults" id="row-0">';
 
-      // Cada estanteria se dibuja por tramos de 40, no entera: la de "Todos
-      // los canales" del indice de iptv-org tiene 11262 y pintarlos todos
-      // de golpe deja el navegador sin aire. El tramo crece segun se avanza
-      // con el D-pad, asi que se llega a todos sin pagar el coste al entrar.
-      var shown = state.shown[s] || CHUNK;
-      var limit = Math.min(g.items.length, shown);
-      for (var i = 0; i < limit; i++) {
-        var it = g.items[i];
-        var live = state.onAir[it.id] || state.onAir[it.tvgId];
-        // Si soloLive está activo, saltar canales que no emiten ahora
-        if (state.onlyLive && !live) continue;
-        var focused = (s === state.shelf && i === state.card);
+    for (var i = 0; i < limit; i++) {
+      var it = g.items[i];
+      var live = state.onAir[it.id] || state.onAir[it.tvgId];
+      var focused = (i === state.card) && !state.masFocus;
 
-        html += '<div class="card' + (verticalResults ? ' verticalCard' : '') + (focused ? ' focused' : '') +
-                  '" data-shelf="' + s + '" data-card="' + i + '" tabindex="0">';
+      html += '<div class="card verticalCard' + (focused ? ' focused' : '') +
+                '" data-card="' + i + '" tabindex="0">';
 
-        if (it.poster) {
-          html += '<div class="thumb"><img src="' + Utils.esc(it.poster) + '" alt="" ' +
-                  'onerror="this.parentNode.className=\'thumb blank\';this.remove();"></div>';
-        } else {
-          html += '<div class="thumb blank"></div>';
-        }
-
-        html += '<span class="badge live">EN VIVO</span>' +
-                (isFav(it.id) ? '<span class="cardFavStar" title="Favorito">&#9733;</span>' : '') +
-                '<div class="ttl">' + Utils.esc(it.title) + '</div>' +
-                (live ? '<span class="onair">' + Utils.esc(live) + '</span>' : '') +
-                '</div>';
+      if (it.poster) {
+        html += '<div class="thumb"><img src="' + Utils.esc(it.poster) + '" alt="" ' +
+                'onerror="this.parentNode.className=\'thumb blank\';this.remove();"></div>';
+      } else {
+        html += '<div class="thumb blank"></div>';
       }
 
-      if (limit < g.items.length) {
-        html += '<span class="moreHint">' + limit + ' de ' + g.items.length +
-                ' canales · pulsa ↓ para cargar más</span>';
-      }
-      html += '</div></section>';
+      html += '<span class="badge live">EN VIVO</span>' +
+              (isFav(it.id) ? '<span class="cardFavStar" title="Favorito">&#9733;</span>' : '') +
+              '<div class="ttl">' + Utils.esc(it.title) + '</div>' +
+              (live ? '<span class="onair">' + Utils.esc(live) + '</span>' : '') +
+              '</div>';
     }
+
+    if (hayMas) {
+      html += '<button id="btnMas" class="btnMas' + (state.masFocus ? ' focused' : '') +
+              '" tabindex="0">' +
+              '<span class="btnMasFlecha" aria-hidden="true">&#9660;</span>' +
+              '<span class="btnMasText">Ver más canales</span>' +
+              '<span class="btnMasCount">' + limit + ' de ' + total + '</span>' +
+              '</button>';
+    }
+
+    html += '</div></section>';
     el.shelves.innerHTML = html;
 
     var cards = el.shelves.querySelectorAll('.card');
     for (var c = 0; c < cards.length; c++) {
       (function (n) {
         n.addEventListener('click', function () {
-          var s = parseInt(n.getAttribute('data-shelf'), 10);
           var d = parseInt(n.getAttribute('data-card'), 10);
-          state.shelf = s; state.card = d; state.zone = 'shelf';
-          var it = state.groups[s] && state.groups[s].items[d];
-          if (it) playItem(it);
+          state.card = d;
+          state.masFocus = false;
+          state.zone = 'shelf';
+          var it2 = state.groups[0].items[d];
+          if (it2) playItem(it2);
         });
       })(cards[c]);
     }
+
+    var mas = $('btnMas');
+    if (mas) mas.addEventListener('click', function () { verMas(); });
   }
 
-  function selectCategory(idx) {
-    var it = state.side[idx];
-    if (!it) return;
-    state.cat = idx;
+  /** Pinta el siguiente tramo y deja el foco en el primer canal nuevo. */
+  function verMas() {
+    var g = state.groups[0];
+    if (!g) return;
+    var total = g.items.length;
+    var shown = state.shown[0] || CHUNK;
+    if (shown >= total) return;
 
-    if (it.type === 'favs') {
-      closeCategories();
-      showFavoritesView();
-      return;
-    }
-    if (it.type === 'recents') {
-      closeCategories();
-      showRecentsView();
-      return;
-    }
-    if (it.type === 'search') {
-      closeCategories();
-      openSearch();
-      return;
-    }
-    if (it.type === 'guide') {
-      closeCategories();
-      showScreen('guide');
-      return;
-    }
-    if (it.type === 'source') {
-      closeCategories();
-      if (it.key === state.activeSource) { render(); paintFocus(); return; }
-      openSource(it.key);
-      return;
-    }
-
-    state.isFavsFilter = false;
-
-    // Seleccionar categoría de canales: ocultar el panel de categorías y mostrar sus canales
-    closeCategories();
-
-    if (it.name === 'Todos los canales') {
-      state.selectedCategory = null;
-      state.groups = state.todo;
-      if (el.catBanner) el.catBanner.style.display = 'none';
-      if (el.catBadge) el.catBadge.textContent = 'Todas';
-    } else {
-      state.selectedCategory = it.name;
-      var found = null;
-      var pool = state.todo || state.groups;
-      for (var g = 0; g < pool.length; g++) {
-        if (pool[g].name === it.name) { found = pool[g]; break; }
-      }
-      state.groups = found ? [found] : pool;
-      if (el.catBanner) el.catBanner.style.display = 'flex';
-      if (el.catBannerTitle) el.catBannerTitle.textContent = it.name;
-      if (el.catBannerCount) el.catBannerCount.textContent = (found ? found.items.length : 0) + ' canales';
-      if (el.catBadge) el.catBadge.textContent = it.name;
-    }
-
-    state.shelf = 0;
-    state.card = 0;
-    state.zone = 'shelf';
-    applyTheme(state.groups[0] && state.groups[0].theme);
-    buildHero();
-    render();
-    revealCard();
-  }
-
-  function clearSelectedCategory() {
-    state.selectedCategory = null;
-    state.isFavsFilter = false;
-    state.groups = state.todo;
-    if (el.catBanner) el.catBanner.style.display = 'none';
-    if (el.catBadge) el.catBadge.textContent = 'Todas';
-    state.shelf = 0;
-    state.card = 0;
-    state.zone = 'shelf';
-    applyTheme('all');
-    buildHero();
-    render();
+    state.card = shown;
+    state.masFocus = false;
+    state.shown[0] = shown + CHUNK;
+    renderShelves();
+    paintFocus();
     revealCard();
   }
 
@@ -980,7 +586,6 @@
     }
     saveFavorites();
     updatePlayerFavBtn();
-    buildSide();
     if (state.isFavsFilter) showFavoritesView();
   }
 
@@ -1008,7 +613,7 @@
 
   function showFavoritesView() {
     state.isFavsFilter = true;
-    state.selectedCategory = '⭐ Favoritos';
+    state.query = '';
     var favItems = [];
     for (var i = 0; i < state.favs.length; i++) {
       var it = state.byId[state.favs[i]];
@@ -1017,16 +622,14 @@
     if (!favItems.length) {
       toast('No tienes canales favoritos todavía');
     }
-    state.groups = [{ name: '⭐ Canales Favoritos', theme: 'all', items: favItems }];
-    if (el.catBanner) el.catBanner.style.display = 'flex';
-    if (el.catBannerTitle) el.catBannerTitle.textContent = '⭐ Mis Favoritos';
-    if (el.catBannerCount) el.catBannerCount.textContent = favItems.length + ' canales guardados';
-    if (el.catBadge) el.catBadge.textContent = 'Favoritos';
+    state.groups = [{ name: 'Mis Favoritos', theme: 'all', items: favItems }];
+    state.shown = {};
     state.shelf = 0;
     state.card = 0;
+    state.masFocus = false;
     state.zone = 'shelf';
     applyTheme('all');
-    buildHero();
+    updateSearchUi();
     render();
     revealCard();
   }
@@ -1045,12 +648,11 @@
     state.recents.unshift(item.id);
     if (state.recents.length > 20) state.recents.pop();
     try { localStorage.setItem('tv_recents', JSON.stringify(state.recents)); } catch (e) {}
-    buildSide();
   }
 
   function showRecentsView() {
     state.isFavsFilter = false;
-    state.selectedCategory = '🕒 Recientes';
+    state.query = '';
     var recentItems = [];
     for (var i = 0; i < state.recents.length; i++) {
       var it = state.byId[state.recents[i]];
@@ -1059,16 +661,14 @@
     if (!recentItems.length) {
       toast('No hay canales recientes todavía');
     }
-    state.groups = [{ name: '🕒 Vistos Recientemente', theme: 'all', items: recentItems }];
-    if (el.catBanner) el.catBanner.style.display = 'flex';
-    if (el.catBannerTitle) el.catBannerTitle.textContent = '🕒 Vistos Recientemente';
-    if (el.catBannerCount) el.catBannerCount.textContent = recentItems.length + ' canales';
-    if (el.catBadge) el.catBadge.textContent = 'Recientes';
+    state.groups = [{ name: 'Vistos Recientemente', theme: 'all', items: recentItems }];
+    state.shown = {};
     state.shelf = 0;
     state.card = 0;
+    state.masFocus = false;
     state.zone = 'shelf';
     applyTheme('all');
-    buildHero();
+    updateSearchUi();
     render();
     revealCard();
   }
@@ -1154,32 +754,6 @@
     }
   }
 
-  function openCategories() {
-    state.categoriesOpen = true;
-    if (el.catsRail) el.catsRail.className = 'rail open';
-    if (el.catsBackdrop) el.catsBackdrop.className = 'drawerBackdrop visible';
-    state.zone = 'cat';
-    paintFocus();
-  }
-
-  function closeCategories() {
-    state.categoriesOpen = false;
-    if (el.catsRail) el.catsRail.className = 'rail';
-    if (el.catsBackdrop) el.catsBackdrop.className = 'drawerBackdrop';
-    if (state.zone === 'cat') {
-      state.zone = 'shelf';
-    }
-    paintFocus();
-  }
-
-  function toggleCategories() {
-    if (state.categoriesOpen) {
-      closeCategories();
-    } else {
-      openCategories();
-    }
-  }
-
   function toggleSearch() {
     if (state.searchOpen) {
       closeSearch();
@@ -1217,57 +791,45 @@
     state.searchOpen = false;
     el.search.className = 'search';
     el.search.blur();
-    if (!state.query && !state.filtro) {
-      el.panel.className = 'searchPanel';
-      el.count.textContent = '';
-    }
+    el.count.textContent = '';
   }
 
   /* ---------------------------------------------------------------- *
    * Foco
    * ---------------------------------------------------------------- */
   function paintFocus() {
-    var cats = el.cats.querySelectorAll('.sideItem');
-    for (var i = 0; i < cats.length; i++) {
-      cats[i].className = cats[i].className.replace(/\s*active\b/, '');
-    }
-    if (state.zone === 'cat' && cats[state.cat]) cats[state.cat].className += ' active';
-
-    if (el.hero) el.hero.className = el.hero.className.replace(/\s*focused\b/, '');
-    if (state.zone === 'hero') el.hero.className += ' focused';
-    paintHero();
-
     var cards = el.shelves.querySelectorAll('.card');
     for (var j = 0; j < cards.length; j++) {
       cards[j].className = cards[j].className.replace(/\s*focused\b/, '');
     }
+
+    var mas = $('btnMas');
+    if (mas) mas.className = mas.className.replace(/\s*focused\b/, '');
+
     if (state.zone === 'shelf') {
-      var node = cardNode();
-      if (node) node.className += ' focused';
+      if (state.masFocus && mas) {
+        mas.className += ' focused';
+      } else {
+        var node = cardNode();
+        if (node) node.className += ' focused';
+      }
     }
   }
 
   function cardNode() {
-    var sel = '.card[data-shelf="' + state.shelf + '"][data-card="' + state.card + '"]';
-    return el.shelves.querySelector(sel);
+    if (state.masFocus) return $('btnMas');
+    return el.shelves.querySelector('.card[data-card="' + state.card + '"]');
   }
 
-  /** Mantiene la ficha enfocada dentro de la vista horizontal y vertical. */
+  /** Mantiene la ficha enfocada dentro de la vista vertical. */
   function revealCard() {
     var node = cardNode();
     if (!node) return;
 
-    var row = node.parentNode;
-    var left = node.offsetLeft, right = left + node.offsetWidth;
-    if (left < row.scrollLeft) row.scrollLeft = left - 20;
-    else if (right > row.scrollLeft + row.clientWidth) {
-      row.scrollLeft = right - row.clientWidth + 20;
-    }
-
-    var top = node.offsetTop, bottom = top + node.offsetHeight;
-    var vt = el.shelves.scrollTop, vb = vt + el.shelves.clientHeight;
-    if (top < vt) el.shelves.scrollTop = top - 20;
-    else if (bottom > vb) el.shelves.scrollTop = bottom - el.shelves.clientHeight + 20;
+    var nr = node.getBoundingClientRect();
+    var cr = el.shelves.getBoundingClientRect();
+    if (nr.top < cr.top) el.shelves.scrollTop += (nr.top - cr.top) - 12;
+    else if (nr.bottom > cr.bottom) el.shelves.scrollTop += (nr.bottom - cr.bottom) + 12;
   }
 
   /* ---------------------------------------------------------------- *
@@ -1367,30 +929,11 @@
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
     if (name !== 'player') player.stop(true);
-    if (name === 'player') stopHero();
-    else if (name === 'catalog') startHero();
 
     el.tabCatalog.className = (name === 'catalog') ? 'active' : '';
     el.tabGuide.className   = (name === 'guide')   ? 'active' : '';
 
     if (name === 'guide' && guide) guide.render();
-  }
-
-  /* ---------------------------------------------------------------- *
-   * Rotacion automatica de los destacados
-   * ---------------------------------------------------------------- */
-  function startHero() {
-    stopHero();
-    if (!state.hero.length || state.hero.length < 2) return;
-    heroTimer = setInterval(function () {
-      if (state.screen !== 'catalog') return;
-      state.heroAt = (state.heroAt + 1) % state.hero.length;
-      paintFocus();
-    }, 7000);
-  }
-
-  function stopHero() {
-    if (heroTimer) { clearInterval(heroTimer); heroTimer = null; }
   }
 
   /* ---------------------------------------------------------------- *
@@ -1402,12 +945,10 @@
 
       if (isKey(e, KEY.OK)) {
         if (state.screen === 'catalog') {
-          if (state.zone === 'cat') selectCategory(state.cat);
-          else if (state.zone === 'hero') {
-            var h = state.hero[state.heroAt];
-            if (h) playItem(h.item);
+          if (state.masFocus) {
+            verMas();
           } else {
-            var it = state.groups[state.shelf] && state.groups[state.shelf].items[state.card];
+            var it = state.groups[0] && state.groups[0].items[state.card];
             if (it) playItem(it);
           }
         } else if (state.screen === 'guide') {
@@ -1429,15 +970,17 @@
 
       if (isKey(e, KEY.BACK)) {
         if (state.screen === 'player') { goBackToList(); }
-        else if (state.categoriesOpen) { closeCategories(); }
         else if (state.screen === 'guide') { showScreen('catalog'); }
         else if (el.search === document.activeElement || el.search.value || state.searchOpen) {
-          el.search.value = ''; state.query = '';
-          closeSearch(); buildGroups(); updateSearchUi(); render();
+          el.search.value = '';
+          state.query = '';
+          state.shelf = 0;
+          state.card = 0;
+          state.masFocus = false;
+          closeSearch();
+          buildGroups();
+          render();
         }
-        else if (state.selectedCategory) { clearSelectedCategory(); }
-        else if (state.zone === 'shelf') { state.zone = 'hero'; paintFocus(); }
-        else if (state.zone === 'hero') { openCategories(); }
         else if (window.history.length > 1) { window.history.back(); }
         e.preventDefault(); return;
       }
@@ -1468,101 +1011,42 @@
     });
   }
 
-  /**
- * Siguiente entrada del lateral a la que se puede parar: se salta los
- * separadores. Si se topa con un borde, se queda en el ultimo (o primero)
- * elemento seleccionable en lugar de clavarse en una cabecera.
- */
-function nextSelectable(from, dir) {
-  var i = from;
-  for (var intentos = 0; intentos < state.side.length + 1; intentos++) {
-    i += dir;
-    if (i < 0 || i >= state.side.length) return from;
-    if (state.side[i].type !== 'head') return i;
-  }
-  return from;
-}
-
-/** dc horizontal, dr vertical. Devuelve true si consumio la pulsacion. */
+  /** dc horizontal (se ignora), dr vertical. Devuelve true si consume. */
   function move(dc, dr) {
-    /* ---- lateral ---- */
-    if (state.zone === 'cat') {
-      if (dr) {
-        state.cat = nextSelectable(state.cat, dr);
-        paintFocus();
-      }
-      if (dc > 0) { state.zone = 'hero'; paintFocus(); }
-      else if (dc < 0 && el.search.value) { closeSearch(); }
-      return true;
-    }
-
-    /* ---- carrusel ---- */
-    if (state.zone === 'hero') {
-      if (dc) {
-        var next = state.heroAt + dc;
-        if (next < 0) state.zone = 'cat';
-        else if (next < state.hero.length) state.heroAt = next;
-      }
-      if (dr > 0) {
-        state.zone = 'shelf';
-        var it = state.side[state.cat];
-        state.shelf = (it && it.type === 'group') ? it.idx : state.shelf;
-        state.card = 0;
-        applyTheme(state.groups[state.shelf] && state.groups[state.shelf].theme);
-        renderShelves();
-        revealCard();
-      }
-      paintFocus();
-      return true;
-    }
-
-    /* ---- estanterias ---- */
-    var g = state.groups[state.shelf];
+    var g = state.groups[0];
     if (!g) return false;
 
-    // Navegacion vertical: primero intenta bajar dentro de la estanteria
-    // actual. Si ya se llego al final de lo pintado, carga mas canales.
-    // Solo si ya se llego al ultimo canal visible, salta a la siguiente
-    // estanteria.
-    var pintadas = state.shown[state.shelf] || CHUNK;
-    var len = Math.min(g.items.length, pintadas);
+    var total = g.items.length;
+    var limit = Math.min(total, state.shown[0] || CHUNK);
+    var hayMas = limit < total;
 
-    if (dr) {
-      if (dr > 0) {
-        // Bajo: si hay mas canales por pintar, carga mas y baja dentro
-        if (state.card >= len - 1 && len < g.items.length) {
-          state.shown[state.shelf] = len + CHUNK;
-          renderShelves();
-          len = Math.min(g.items.length, state.shown[state.shelf]);
-        }
-        state.card = Math.min(len - 1, state.card + 1);
-      } else {
-        // Arriba: sube dentro de la estanteria actual
-        if (state.card > 0) state.card -= 1;
-        else { state.zone = 'hero'; }
+    if (dr > 0) {
+      if (state.masFocus) return true;
+      if (state.card < limit - 1) {
+        state.card += 1;
+      } else if (hayMas) {
+        state.card = limit;          // foco al boton "Ver más"
+        state.masFocus = true;
       }
       paintFocus();
-      if (state.zone === 'shelf') revealCard();
+      revealCard();
       return true;
     }
 
-    if (dc) {
-      if (dc > 0) {
-        if (state.card >= len - 1 && len < g.items.length) {
-          state.shown[state.shelf] = len + CHUNK;
-          renderShelves();
-        }
-        var tope = Math.min(g.items.length, state.shown[state.shelf] || CHUNK);
-        state.card = Math.min(tope - 1, state.card + 1);
+    if (dr < 0) {
+      if (state.masFocus) {
+        state.masFocus = false;
+        state.card = limit - 1;
+      } else if (state.card > 0) {
+        state.card -= 1;
       }
-      else if (state.card > 0) state.card -= 1;
-      else { state.zone = 'hero'; }
       paintFocus();
-      if (state.zone === 'shelf') revealCard();
+      revealCard();
       return true;
     }
 
-    // Si no hay dr ni dc, no se consumio la pulsacion
+    // Izquierda/derecha no desplazan la lista: es de una sola columna.
+    if (dc) return true;
     return false;
   }
 
@@ -1570,12 +1054,9 @@ function nextSelectable(from, dir) {
     if (window.navigator && navigator.remote && navigator.remote.playButton) {
       navigator.remote.playButton.addEventListener('click', function () {
         if (state.screen !== 'catalog') return;
-        if (state.zone === 'cat') selectCategory(state.cat);
-        else if (state.zone === 'hero') { var h = state.hero[state.heroAt]; if (h) playItem(h.item); }
-        else {
-          var it = state.groups[state.shelf] && state.groups[state.shelf].items[state.card];
-          if (it) playItem(it);
-        }
+        if (state.masFocus) { verMas(); return; }
+        var it = state.groups[0] && state.groups[0].items[state.card];
+        if (it) playItem(it);
       });
     }
   }
@@ -1620,7 +1101,6 @@ function nextSelectable(from, dir) {
       var i = Epg.current(byCh.map[ch], now);
       if (i > -1) state.onAir[ch] = byCh.map[ch][i].title;
     }
-    renderHero();
     renderShelves();
     paintFocus();
   }

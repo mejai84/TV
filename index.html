@@ -9,21 +9,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=57">
+<link rel="stylesheet" href="css/app.css?v=58">
 </head>
 <body class="tv">
 
 <!-- ================= PANTALLA CATÁLOGO ================= -->
 <section id="catalogScreen">
 
-  <!-- Banda superior: selector de categorías, favoritos, luz de emisión, herramientas -->
+  <!-- Banda superior: favoritos, busqueda, luz de emision, herramientas -->
   <header class="band">
-    <button id="btnToggleCategories" class="btnBandCategories" aria-label="Categorías" tabindex="0">
-      <span class="catBandIcon" aria-hidden="true">&#9776;</span>
-      <span class="catBandText">Categorías</span>
-      <span id="catBadge" class="catBadge">Todas</span>
-    </button>
-
     <button id="btnHeaderFavs" class="btnBandFavs" aria-label="Mis Favoritos" title="Ver canales favoritos" tabindex="0">
       <span class="favBandIcon" aria-hidden="true">&#9733;</span>
       <span class="favBandText">Favoritos</span>
@@ -59,42 +53,10 @@
       <div id="searchCount" class="searchCount"></div>
       <button id="btnCloseSearch" class="searchCloseBtn" aria-label="Cerrar búsqueda" tabindex="0">&times;</button>
     </div>
-    <div id="searchFilters" class="filters"></div>
   </div>
 
-  <!-- Fondo oscuro al abrir el panel de categorías -->
-  <div id="categoriesBackdrop" class="drawerBackdrop"></div>
-
   <div class="layout">
-    <!-- Panel lateral de categorías oculto por defecto (drawer) -->
-    <aside id="categories" class="rail">
-      <div class="drawerHeader">
-        <div class="drawerHeading">
-          <span class="drawerIcon" aria-hidden="true">&#9776;</span>
-          <h3>Categorías</h3>
-        </div>
-        <button id="btnCloseCategories" class="drawerCloseBtn" aria-label="Cerrar categorías" tabindex="0">&times;</button>
-      </div>
-      <div id="categoriesList" class="railContent"></div>
-    </aside>
-
     <main class="canvas">
-      <!-- Barra de categoría activa cuando se filtra por una categoría -->
-      <div id="activeCategoryBanner" class="activeCategoryBanner" style="display:none">
-        <div class="catBannerInfo">
-          <span class="catBannerTag">Categoría activa</span>
-          <h2 id="catBannerTitle" class="catBannerTitle">Todas</h2>
-          <span id="catBannerCount" class="catBannerCount">0 canales</span>
-        </div>
-        <div class="catBannerActions">
-          <button id="btnBannerChangeCat" class="catBannerBtn" tabindex="0">&#9776; Cambiar categoría</button>
-          <button id="btnBannerClearCat" class="catBannerBtn catBannerBtnSecondary" tabindex="0">&times; Ver todos los canales</button>
-        </div>
-      </div>
-
-      <!-- Cartela destacado: bloque de emision principal -->
-      <section id="hero" class="cardela" tabindex="0"></section>
-
       <!-- Estanterias de canales -->
       <div id="shelves" class="rows" tabindex="0"></div>
     </main>
@@ -171,9 +133,9 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=56"></script>
-<script src="js/epg.js?v=56"></script>
-<script src="js/player.js?v=56"></script>
-<script src="js/app.js?v=56"></script>
+<script src="js/config.js?v=58"></script>
+<script src="js/epg.js?v=58"></script>
+<script src="js/player.js?v=58"></script>
+<script src="js/app.js?v=58"></script>
 </body>
 </html>
