@@ -1011,7 +1011,7 @@
     });
   }
 
-  /** dc horizontal (se ignora), dr vertical. Devuelve true si consume. */
+  /** dc horizontal (salto de pagina), dr vertical (paso a paso). */
   function move(dc, dr) {
     var g = state.groups[0];
     if (!g) return false;
@@ -1019,6 +1019,28 @@
     var total = g.items.length;
     var limit = Math.min(total, state.shown[0] || CHUNK);
     var hayMas = limit < total;
+    var PAGINA = 8;
+
+    if (dc) {
+      if (dc > 0) {
+        // Derecha: avanza una pagina; si toca el final, cae en "Ver más".
+        if (state.masFocus) { verMas(); return true; }
+        var next = state.card + PAGINA;
+        if (next >= limit) {
+          if (hayMas) { state.card = limit; state.masFocus = true; }
+          else { state.card = limit - 1; }
+        } else {
+          state.card = next;
+        }
+      } else {
+        // Izquierda: retrocede una pagina.
+        if (state.masFocus) { state.masFocus = false; state.card = limit - 1; }
+        else { state.card = Math.max(0, state.card - PAGINA); }
+      }
+      paintFocus();
+      revealCard();
+      return true;
+    }
 
     if (dr > 0) {
       if (state.masFocus) return true;
@@ -1045,8 +1067,6 @@
       return true;
     }
 
-    // Izquierda/derecha no desplazan la lista: es de una sola columna.
-    if (dc) return true;
     return false;
   }
 
