@@ -2038,6 +2038,11 @@
           counts.textContent = norm.length + (norm.length === 1 ? ' temporada' : ' temporadas') +
             ' · ' + totalEps + (totalEps === 1 ? ' episodio' : ' episodios');
         }
+        if (data.year) {
+          item.year = String(data.year);
+          var yearEl = $('detailYear');
+          if (yearEl) yearEl.textContent = item.year;
+        }
         fillDetailTech(item, true, {
           originalTitle: data.originalTitle || '',
           seasons: norm.length,
