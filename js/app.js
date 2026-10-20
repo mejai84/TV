@@ -234,6 +234,9 @@
       var qk = /[?&]kind=([a-z]+)/i.exec(window.location.search || '');
       var srcNow = qm ? qm[1].toLowerCase() : (CONFIG.source || 'iptvorg');
       var kindNow = qk ? qk[1].toLowerCase() : '';
+      // Normaliza plurales para que coincida con data-kind de las pestañas.
+      if (kindNow === 'movies') kindNow = 'movie';
+      if (kindNow === 'tv') kindNow = 'series';
       var btns = document.querySelectorAll('.quickNav .qn');
       for (var qi = 0; qi < btns.length; qi++) {
         var b = btns[qi];
@@ -617,9 +620,8 @@
    * ---------------------------------------------------------------- */
 
   function updateSearchUi() {
-    // El panel queda siempre a la vista: con mas de 11000 canales el
-    // buscador es la navegacion principal, no algo escondido.
-    el.panel.className = 'searchPanel on';
+    // El panel se abre solo cuando el usuario busca o filtra: en TV en vivo
+    // es util, pero no debe tapar los accesos a Peliculas/Series.
     if (!state.query) { el.count.textContent = ''; return; }
 
     var n = state.groups.length ? state.groups[0].items.length : 0;
@@ -1102,6 +1104,8 @@
   }
 
   function openSearch() {
+    // En Peliculas/Series no hay canales que filtrar: no abrir el buscador.
+    try { if (activeSource() === 'embeds') return; } catch (e) { /* */ }
     state.searchOpen = true;
     el.panel.className = 'searchPanel on';
     el.search.className = 'search open';
@@ -1120,6 +1124,7 @@
     el.search.className = 'search';
     el.search.blur();
     el.count.textContent = '';
+    if (el.panel) el.panel.className = 'searchPanel';
   }
 
   /* ---------------------------------------------------------------- *
@@ -1494,14 +1499,19 @@
     if (titleEl) titleEl.textContent = item.title || 'Serie';
     if (overlay) overlay.style.display = 'flex';
 
+    // Series del catálogo NasriPlay (slug): la API ya trae temporadas.
+    if (item && item.slug) {
+      loadFromNasriplay(item);
+      return;
+    }
+
     var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
     var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
     var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
 
     if (!tmdbKey) {
-      // Sin clave: mostrar mensaje.
       var el2 = document.getElementById('episodeList');
-      if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Configura CONFIG.tmdb.apiKey para ver temporadas y episodios.</div>';
+      if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">No se pudieron obtener las temporadas de esta serie.</div>';
       return;
     }
 
@@ -1510,20 +1520,64 @@
     Utils.fetch(url, null, 15000).then(function (text) {
       var data = JSON.parse(text);
       var seasons = (data && data.seasons) || [];
-      // Filtrar temporada 0 (especiales) si hay otras.
-      var realSeasons = [];
+      var norm = [];
       for (var i = 0; i < seasons.length; i++) {
-        if (seasons[i].season_number > 0) realSeasons.push(seasons[i]);
+        if (seasons[i].season_number > 0) {
+          norm.push({ number: seasons[i].season_number, name: seasons[i].name });
+        }
       }
-      if (!realSeasons.length) realSeasons = seasons;
-      seriesOverlayState.seasons = realSeasons;
-      if (realSeasons.length) seriesOverlayState.currentSeason = realSeasons[0].season_number;
+      if (!norm.length) {
+        for (var j = 0; j < seasons.length; j++) norm.push({ number: seasons[j].season_number, name: seasons[j].name });
+      }
+      seriesOverlayState.seasons = norm;
+      if (norm.length) seriesOverlayState.currentSeason = norm[0].number;
       renderSeasonTabs();
       loadEpisodes(seriesOverlayState.currentSeason);
     }).catch(function () {
       var el2 = document.getElementById('episodeList');
       if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar temporadas.</div>';
     });
+  }
+
+  // Temporadas/episodios desde NasriPlay (info/:slug).
+  function loadFromNasriplay(item) {
+    var el2 = document.getElementById('episodeList');
+    if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Cargando temporadas...</div>';
+
+    fetch('/api/nsrplay?action=info&type=series&slug=' + encodeURIComponent(item.slug))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var seasons = (d && d.data && d.data.seasons) || [];
+        var norm = [];
+        for (var i = 0; i < seasons.length; i++) {
+          var s = seasons[i] || {};
+          var eps = [];
+          var list = s.episodes || [];
+          for (var j = 0; j < list.length; j++) {
+            eps.push({ number: list[j].number, name: list[j].title || ('Episodio ' + list[j].number), still: '' });
+          }
+          norm.push({ number: s.number, name: s.name || ('Temporada ' + s.number), episodes: eps });
+        }
+        seriesOverlayState.seasons = norm;
+        if (!norm.length) throw new Error('sin temporadas');
+        seriesOverlayState.currentSeason = norm[0].number;
+        renderSeasonTabs();
+        selectSeason(seriesOverlayState.currentSeason);
+      })
+      .catch(function () {
+        if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">No se pudieron cargar las temporadas.</div>';
+      });
+  }
+
+  function selectSeason(seasonNum) {
+    var seasons = seriesOverlayState.seasons || [];
+    for (var i = 0; i < seasons.length; i++) {
+      if (seasons[i].number === seasonNum) {
+        seriesOverlayState.episodes = seasons[i].episodes || [];
+        break;
+      }
+    }
+    renderEpisodes(seriesOverlayState.episodes, seasonNum);
   }
 
   function renderSeasonTabs() {
@@ -1533,9 +1587,9 @@
     for (var i = 0; i < seriesOverlayState.seasons.length; i++) {
       var s = seriesOverlayState.seasons[i];
       var btn = document.createElement('button');
-      btn.className = 'seasonTab' + (s.season_number === seriesOverlayState.currentSeason ? ' active' : '');
-      btn.textContent = s.name || ('Temporada ' + s.season_number);
-      btn.setAttribute('data-season', s.season_number);
+      btn.className = 'seasonTab' + (s.number === seriesOverlayState.currentSeason ? ' active' : '');
+      btn.textContent = s.name || ('Temporada ' + s.number);
+      btn.setAttribute('data-season', s.number);
       btn.addEventListener('click', function () {
         var sn = parseInt(this.getAttribute('data-season'), 10);
         seriesOverlayState.currentSeason = sn;
@@ -1547,6 +1601,12 @@
   }
 
   function loadEpisodes(seasonNum) {
+    // Si la serie vino de NasriPlay, los episodios ya están en memoria.
+    if (seriesOverlayState.seasons.length && seriesOverlayState.seasons[0].episodes) {
+      selectSeason(seasonNum);
+      return;
+    }
+
     var el2 = document.getElementById('episodeList');
     if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Cargando episodios...</div>';
 
@@ -1557,9 +1617,17 @@
     var url = base + '/tv/' + encodeURIComponent(seriesOverlayState.item.id) + '/season/' + seasonNum + '?api_key=' + encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
     Utils.fetch(url, null, 15000).then(function (text) {
       var data = JSON.parse(text);
-      var episodes = (data && data.episodes) || [];
-      seriesOverlayState.episodes = episodes;
-      renderEpisodes(episodes, seasonNum);
+      var raw = (data && data.episodes) || [];
+      var eps = [];
+      for (var i = 0; i < raw.length; i++) {
+        eps.push({
+          number: raw[i].episode_number,
+          name: raw[i].name || ('Episodio ' + raw[i].episode_number),
+          still: raw[i].still_path ? ('https://image.tmdb.org/t/p/w300' + raw[i].still_path) : ''
+        });
+      }
+      seriesOverlayState.episodes = eps;
+      renderEpisodes(eps, seasonNum);
     }).catch(function () {
       if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar episodios.</div>';
     });
@@ -1577,16 +1645,16 @@
       var ep = episodes[i];
       var card = document.createElement('div');
       card.className = 'episodeCard';
-      var still = ep.still_path ? 'https://image.tmdb.org/t/p/w300' + ep.still_path : '';
+      var still = ep.still || '';
       var imgHtml = still ? '<img class="epStill" src="' + Utils.esc(still) + '" alt="" loading="lazy">' : '';
       card.innerHTML = imgHtml +
-        '<div class="epNum">E' + ep.episode_number + '</div>' +
-        '<div class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.episode_number)) + '</div>';
+        '<div class="epNum">E' + ep.number + '</div>' +
+        '<div class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.number)) + '</div>';
       (function (epNum) {
         card.addEventListener('click', function () {
           playSeriesEpisode(seriesOverlayState.item, seasonNum, epNum);
         });
-      })(ep.episode_number);
+      })(ep.number);
       el2.appendChild(card);
     }
   }
@@ -1598,6 +1666,7 @@
 
     var epItem = {
       id: item.id,
+      slug: item.slug,
       title: item.title + ' - T' + season + ' E' + episode,
       kind: 'series',
       season: season,

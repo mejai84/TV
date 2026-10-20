@@ -745,14 +745,28 @@ EmbedAdapter.prototype._tmdb = function (path) {
 EmbedAdapter.prototype.list = function () {
   var self = this;
   if (!this.tmdbKey) {
-    // Catalogo local minimo para que la UI funcione sin clave.
-    return Promise.resolve([
-      { id: '550', title: 'Fight Club', kind: 'movie', poster: '', year: '1999', description: 'Un oficinista insomne y un fabricante de jabon forman un club de lucha clandestino.' },
-      { id: '27205', title: 'Inception', kind: 'movie', poster: '', year: '2010', description: 'Un ladron que roba secretos corporativos mediante la tecnologia de compartir suenos.' },
-      { id: '155', title: 'The Dark Knight', kind: 'movie', poster: '', year: '2008', description: 'Batman se enfrenta al Joker, un criminal que siembra el caos en Gotham.' },
-      { id: '1396', title: 'Breaking Bad', kind: 'series', poster: '', year: '2008', description: 'Un profesor de quimica diagnosticado con cancer se convierte en fabricante de metanfetamina.' },
-      { id: '1399', title: 'Game of Thrones', kind: 'series', poster: '', year: '2011', description: 'Nueve familias nobles luchan por el control de los Siete Reinos de Westeros.' }
-    ]);
+    // Sin TMDB key el catálogo sale de NasriPlay (server-side).
+    // Películas con metadatos TMDB y series con slug reproducible.
+    var moviesP = fetch('/api/catalog?type=movie')
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d && d.items) || []; })
+      .catch(function () { return []; });
+
+    var seriesP = fetch('/api/catalog?type=series')
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d && d.items) || []; })
+      .catch(function () { return []; });
+
+    return Promise.all([moviesP, seriesP]).then(function (parts) {
+      var all = parts[0].concat(parts[1]);
+      if (all.length) return all;
+      // Último recurso: catálogo local mínimo para que la UI no quede vacía.
+      return [
+        { id: '550', title: 'Fight Club', kind: 'movie', poster: '', year: '1999', description: 'Un oficinista insomne y un fabricante de jabón forman un club de lucha clandestino.' },
+        { id: '27205', title: 'Inception', kind: 'movie', poster: '', year: '2010', description: 'Un ladrón que roba secretos corporativos mediante la tecnología de compartir sueños.' },
+        { id: '1396', title: 'Breaking Bad', kind: 'series', poster: '', year: '2008', description: 'Un profesor de química diagnosticado con cáncer se convierte en fabricante de metanfetamina.' }
+      ];
+    });
   }
   // Peliculas y series en paralelo; se mezclan y se etiquetan con 'kind'.
   var moviesP = fetch(self._tmdb('/movie/popular?page=1'))
@@ -837,65 +851,128 @@ EmbedAdapter.prototype._embedUrl = function (provider, item) {
   }
 };
 
+/* Resolución para títulos del catálogo NasriPlay (identificados por slug).
+ * info/:slug (películas) o servers?slug (series) -> resolve-url -> playUrl.
+ * Se prueban como máximo 2 servidores para cuidar la cuota de la API. */
+EmbedAdapter.prototype._resolveBySlug = function (item) {
+  var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
+  var slug = encodeURIComponent(item.slug);
+
+  var serversP;
+  if (isSeries) {
+    var sn = encodeURIComponent(item.season || 1);
+    var ep = encodeURIComponent(item.episode || 1);
+    serversP = fetch('/api/nsrplay?action=servers&slug=' + slug + '&season=' + sn + '&episode=' + ep)
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d && d.data && d.data.servers) || []; });
+  } else {
+    serversP = fetch('/api/nsrplay?action=info&slug=' + slug + '&type=movie')
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return (d && d.data && d.data.servers) || []; });
+  }
+
+  return serversP.then(function (servers) {
+    var out = [];
+    var idx = 0;
+
+    function step() {
+      if (idx >= servers.length || out.length >= 2) return Promise.resolve();
+      var s = servers[idx++] || {};
+      var eu = s.embedUrl || s.url;
+      if (!eu) return step();
+      return fetch('/api/nsrplay?action=resolve-url&url=' + encodeURIComponent(eu))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var play = d && d.data && (d.data.playUrl || d.data.play_url);
+          if (play) {
+            out.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: s.language || s.name || '' });
+            return; // ya tenemos uno reproducible
+          }
+          return step();
+        })
+        .catch(function () { return step(); });
+    }
+
+    return step().then(function () {
+      if (out.length) return out;
+      // Respaldo: primer embed directo (puede traer anuncios).
+      if (servers.length && (servers[0].embedUrl || servers[0].url)) {
+        return [{ url: servers[0].embedUrl || servers[0].url, quality: 'FHD', headers: {}, expiresAt: 0 }];
+      }
+      return [];
+    });
+  }).catch(function () { return []; });
+};
+
 EmbedAdapter.prototype.resolve = function (item) {
   var self = this;
   var id = item && item.id;
   if (!id) return Promise.resolve([]);
+
+  // Items del catálogo de NasriPlay (slug): flujo info/servers -> resolve-url.
+  if (item && item.slug) return this._resolveBySlug(item);
+
   var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
   var typePath = isSeries ? 'tv' : 'movie';
   var season = (item && item.season) || '';
   var episode = (item && item.episode) || '';
 
-  var results = [];
-  var pending = [];
+  var priority = [];   // nsrplay/playUrl: reproduccion directa sin anuncios
+  var others = [];     // iframes publicos de respaldo
+  var tasks = [];
 
   for (var i = 0; i < self.providers.length; i++) {
     var provider = self.providers[i];
 
     if (provider === 'nasriplay') {
-      // Modo avanzado: 2 pasos para obtener playUrl (sin anuncios, directo).
-      // Paso 1: sources. Paso 2: resolve del primer token.
-      // Si falla, cae al modo iframe (embed) como respaldo.
-      (function (prov) {
-        pending.push(
-          (function () {
-            var srcUrl = '/api/nsrplay?action=sources&type=' + encodeURIComponent(typePath) + '&id=' + encodeURIComponent(id);
-            if (isSeries && season && episode) srcUrl += '&season=' + encodeURIComponent(season) + '&episode=' + encodeURIComponent(episode);
-            return fetch(srcUrl).then(function (r) { return r.json(); }).then(function (data) {
-              var servers = (data && data.servers) || (data && data.data && data.data.servers) || [];
-              if (!servers.length) throw new Error('sin servidores');
-              // Resolver el primer servidor disponible.
-              var srv = servers[0];
-              var token = srv.token || srv.id || srv.serverToken;
-              if (!token) throw new Error('sin token');
-              return fetch('/api/nsrplay?action=resolve&token=' + encodeURIComponent(token)).then(function (r2) { return r2.json(); }).then(function (d2) {
-                var playUrl = (d2 && (d2.playUrl || d2.play_url || d2.url)) || null;
-                if (playUrl) {
-                  results.push({ url: playUrl, quality: 'FHD', headers: {}, expiresAt: 0 });
-                } else {
-                  throw new Error('sin playUrl');
+      // Modo avanzado (2 pasos): sources -> resolve del token -> playUrl.
+      // Se prueba servidor por servidor (maximo 3) para no gastar cuota.
+      tasks.push((function () {
+        var srcUrl = '/api/nsrplay?action=sources&type=' + encodeURIComponent(typePath) + '&id=' + encodeURIComponent(id);
+        if (isSeries && season && episode) srcUrl += '&season=' + encodeURIComponent(season) + '&episode=' + encodeURIComponent(episode);
+        return fetch(srcUrl).then(function (r) { return r.json(); }).then(function (data) {
+          var servers = (data && data.servers) || (data && data.data && data.data.servers) || [];
+          if (!servers.length) throw new Error('sin servidores');
+
+          var tried = 0;
+          function attempt(idx) {
+            if (idx >= servers.length || tried >= 3) throw new Error('sin playUrl');
+            tried++;
+            var srv = servers[idx] || {};
+            var token = srv.token || srv.id || srv.serverToken;
+            if (!token) return attempt(idx + 1);
+            return fetch('/api/nsrplay?action=resolve&token=' + encodeURIComponent(token))
+              .then(function (r2) { return r2.json(); })
+              .then(function (d2) {
+                var play = d2 && (d2.playUrl || d2.play_url || (d2.data && d2.data.playUrl));
+                if (play) {
+                  priority.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: srv.language || srv.name || 'NsrPlay' });
+                  return;
                 }
-              });
-            }).catch(function () {
-              // Respaldo: iframe directo (con anuncios, pero funciona).
-              var fallback = 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
-              if (isSeries && season && episode) fallback += '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
-              results.push({ url: fallback, quality: 'FHD', headers: {}, expiresAt: 0 });
-            });
-          })()
-        );
-      })(provider);
+                return attempt(idx + 1);
+              })
+              .catch(function () { return attempt(idx + 1); });
+          }
+          return attempt(0);
+        }).catch(function () {
+          // Respaldo: iframe directo (con anuncios, pero funciona).
+          var fallback = 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
+          if (isSeries && season && episode) fallback += '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
+          priority.push({ url: fallback, quality: 'FHD', headers: {}, expiresAt: 0 });
+        });
+      })());
     } else {
       // Proveedores publicos: URL directa de embed (iframe).
       var url = self._embedUrl(provider, item);
-      if (url) results.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
+      if (url) others.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
     }
   }
 
-  if (pending.length === 0) return Promise.resolve(results);
+  if (tasks.length === 0) return Promise.resolve(others);
 
-  return Promise.all(pending).then(function () {
-    return results;
+  return Promise.all(tasks).then(function () {
+    // playUrl (sin anuncios) siempre primero; iframes despues como respaldo.
+    return priority.concat(others);
   });
 };
 

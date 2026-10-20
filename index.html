@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=64">
+<link rel="stylesheet" href="css/app.css?v=66">
 </head>
 <body class="tv">
 
@@ -23,6 +23,22 @@
       <span class="favBandText">Favoritos</span>
       <span id="favCountBadge" class="favBadge">0</span>
     </button>
+
+    <!-- Accesos rapidos: Peliculas / Series / TV en Vivo (estilo GoPelis) -->
+    <nav id="quickNav" class="quickNav" aria-label="Secciones">
+      <button class="qn" data-src="embeds" data-kind="movie" tabindex="0">
+        <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v2h2V6H5Zm12 0v2h2V6h-2ZM5 10v2h2v-2H5Zm12 0v2h2v-2h-2ZM5 14v2h2v-2H5Zm12 0v2h2v-2h-2Z"/></svg>
+        <span class="qnLabel">Películas</span>
+      </button>
+      <button class="qn" data-src="embeds" data-kind="series" tabindex="0">
+        <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v10a1.5 1.5 0 0 1-1.5 1.5H13v1.5h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3V17H4.5A1.5 1.5 0 0 1 3 15.5v-10Zm2 .5v9h14V6H5Z"/></svg>
+        <span class="qnLabel">Series</span>
+      </button>
+      <button class="qn" data-src="iptvorg" data-kind="" tabindex="0">
+        <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm-1 5.1A8 8 0 0 1 20 15a1 1 0 1 1-2 0 6 6 0 0 0-12 0 1 1 0 1 1-2 0 8 8 0 0 1 7-7.9ZM12 11a4 4 0 0 1 4 4 1 1 0 1 1-2 0 2 2 0 0 0-4 0 1 1 0 1 1-2 0 4 4 0 0 1 4-4Zm0 5.9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>
+        <span class="qnLabel">TV en Vivo</span>
+      </button>
+    </nav>
 
     <button id="btnSearch" class="tally" aria-label="Buscar" tabindex="0">
       <span class="lamp" aria-hidden="true"></span>
@@ -66,13 +82,6 @@
       <button id="btnSort" class="qf" tabindex="0">Orden: Nombre</button>
     </div>
   </div>
-
-  <!-- Navegacion rapida: Peliculas / Series / TV en vivo (estilo GoPelis) -->
-  <nav id="quickNav" class="quickNav" aria-label="Acceso rapido">
-    <button class="qn" data-src="embeds" data-kind="movie" tabindex="0">Películas</button>
-    <button class="qn" data-src="embeds" data-kind="series" tabindex="0">Series</button>
-    <button class="qn" data-src="iptvorg" data-kind="" tabindex="0">TV en Vivo</button>
-  </nav>
 
   <div class="layout">
     <main class="canvas">

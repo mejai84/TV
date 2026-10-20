@@ -25,7 +25,8 @@ function buildUrl(source, type, id) {
     case 'peliapi-player': {
       var key = process.env.NSRPLAY_API_KEY || '';
       var url = 'https://nsrplay.space/embed/' + t + '/' + encodeURIComponent(id);
-      if (key) url += '?apiKey=' + encodeURIComponent(key);
+      if (season && episode) url += '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
+      if (key) url += (url.indexOf('?') > -1 ? '&' : '?') + 'apiKey=' + encodeURIComponent(key);
       return url;
     }
     default:
@@ -46,6 +47,8 @@ export default async function handler(req, res) {
   var source = String(req.query.source || '').toLowerCase();
   var type = String(req.query.type || 'movie').toLowerCase();
   var id = String(req.query.id || '').trim();
+  var season = String(req.query.season || '').trim();
+  var episode = String(req.query.episode || '').trim();
 
   if (!source || ALLOWED_SOURCES.indexOf(source) === -1) {
     res.status(400).json({ error: 'source no permitido' });
