@@ -86,6 +86,9 @@ Player.loadHls = function () {
 Player.isEmbedUrl = function (url) {
   if (!url || typeof url !== 'string') return false;
   var u = url.toLowerCase().split('?')[0];
+  // El proxy HLS de NasriPlay devuelve un manifest aunque la URL no
+  // termine en .m3u8: se reproduce con hls.js, no en un iframe.
+  if (u.indexOf('/embed/stream-proxy') > -1) return false;
   return !(u.match(/\.(m3u8|m3u|mp4|ts|mpd|mkv|webm|avi|mov)$/) ||
            u.indexOf('/api/stream?') > -1);
 };

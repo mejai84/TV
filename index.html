@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#060b14">
 <meta name="referrer" content="no-referrer">
-<title>Televisión</title>
+<title>TelevisiÃ³n</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
 </head>
 <body class="tv">
 
-<!-- ================= PANTALLA CATÁLOGO ================= -->
+<!-- ================= PANTALLA CATÃLOGO ================= -->
 <section id="catalogScreen">
 
   <!-- Banda superior: favoritos, busqueda, luz de emision, herramientas -->
@@ -28,7 +28,7 @@
     <nav id="quickNav" class="quickNav" aria-label="Secciones">
       <button class="qn" data-src="embeds" data-kind="movie" tabindex="0">
         <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v2h2V6H5Zm12 0v2h2V6h-2ZM5 10v2h2v-2H5Zm12 0v2h2v-2h-2ZM5 14v2h2v-2H5Zm12 0v2h2v-2h-2Z"/></svg>
-        <span class="qnLabel">Películas</span>
+        <span class="qnLabel">PelÃ­culas</span>
       </button>
       <button class="qn" data-src="embeds" data-kind="series" tabindex="0">
         <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v10a1.5 1.5 0 0 1-1.5 1.5H13v1.5h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3V17H4.5A1.5 1.5 0 0 1 3 15.5v-10Zm2 .5v9h14V6H5Z"/></svg>
@@ -46,16 +46,16 @@
     </button>
 
     <div class="onAir" aria-live="off" role="status">
-      <span id="onAirList" class="onAirList">Catálogo de televisión</span>
+      <span id="onAirList" class="onAirList">CatÃ¡logo de televisiÃ³n</span>
     </div>
 
     <div class="bandRight">
       <div class="tools">
-        <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar País o Lista" title="Cambiar País o Región" tabindex="0">&#127760;</button>
+        <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar PaÃ­s o Lista" title="Cambiar PaÃ­s o RegiÃ³n" tabindex="0">&#127760;</button>
         <button id="btnOpenSearch" class="icon" aria-label="Buscar canales" title="Buscar" tabindex="0">&#128269;</button>
         <button id="btnRandom" class="icon" aria-label="Canal aleatorio" title="Canal aleatorio" tabindex="0">&#127922;</button>
         <button id="btnTheme" class="icon" aria-label="Cambiar tema" title="Tema claro/oscuro" tabindex="0">&#9681;</button>
-        <button id="btnFont" class="icon" aria-label="Tamaño de fuente" title="Tamaño de fuente" tabindex="0">&#128288;</button>
+        <button id="btnFont" class="icon" aria-label="TamaÃ±o de fuente" title="TamaÃ±o de fuente" tabindex="0">&#128288;</button>
         <button id="btnHelp" class="icon" aria-label="Ayuda y atajos" title="Ayuda" tabindex="0">&#9432;</button>
         <button id="tabCatalog" class="icon" aria-label="Catalogo" tabindex="0">&#9635;</button>
         <button id="tabGuide" class="icon" aria-label="Guia de TV" tabindex="0">&#9776;</button>
@@ -70,9 +70,9 @@
     <div class="searchRow">
       <input id="searchInput" class="search" type="text" placeholder="Buscar canales..."
              autocomplete="off" autocorrect="off" spellcheck="false">
-      <button id="btnVoiceSearch" class="searchVoiceBtn" aria-label="Búsqueda por voz" tabindex="0">&#127908;</button>
+      <button id="btnVoiceSearch" class="searchVoiceBtn" aria-label="BÃºsqueda por voz" tabindex="0">&#127908;</button>
       <div id="searchCount" class="searchCount"></div>
-      <button id="btnCloseSearch" class="searchCloseBtn" aria-label="Cerrar búsqueda" tabindex="0">&times;</button>
+      <button id="btnCloseSearch" class="searchCloseBtn" aria-label="Cerrar bÃºsqueda" tabindex="0">&times;</button>
     </div>
     <div class="quickFilters">
       <button class="qf" data-qf="all" tabindex="0">Todos</button>
@@ -94,8 +94,8 @@
 <!-- ================= GUIA ================= -->
 <section id="guideScreen" style="display:none">
   <div class="guideHeader">
-    <span class="guideTitle">Guía de TV</span>
-    <button id="btnCloseGuide" class="guideCloseBtn" aria-label="Cerrar guía" tabindex="0">&times;</button>
+    <span class="guideTitle">GuÃ­a de TV</span>
+    <button id="btnCloseGuide" class="guideCloseBtn" aria-label="Cerrar guÃ­a" tabindex="0">&times;</button>
   </div>
   <div id="epg" class="epg"></div>
 </section>
@@ -121,7 +121,7 @@
         <span class="pbtnText">Anterior</span>
       </button>
 
-      <button id="btnStop" class="pbtn pbtn-danger" aria-label="Detener emisión" title="Detener emisión" tabindex="0">
+      <button id="btnStop" class="pbtn pbtn-danger" aria-label="Detener emisiÃ³n" title="Detener emisiÃ³n" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#9632;</span>
         <span class="pbtnText">Detener</span>
       </button>
@@ -131,12 +131,12 @@
         <span class="pbtnText">Siguiente</span>
       </button>
 
-      <button id="btnFav" class="pbtn pbtn-fav" aria-label="Añadir a favoritos" title="Favorito" tabindex="0">
+      <button id="btnFav" class="pbtn pbtn-fav" aria-label="AÃ±adir a favoritos" title="Favorito" tabindex="0">
         <span id="favPlayerIcon" class="pbtnIcon" aria-hidden="true">&#9734;</span>
         <span id="favPlayerText" class="pbtnText">Favorito</span>
       </button>
 
-      <button id="btnReload" class="pbtn pbtn-reload" aria-label="Recargar emisión" title="Recargar emisión" tabindex="0">
+      <button id="btnReload" class="pbtn pbtn-reload" aria-label="Recargar emisiÃ³n" title="Recargar emisiÃ³n" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#128259;</span>
         <span class="pbtnText">Recargar</span>
       </button>
@@ -156,12 +156,12 @@
         <span class="pbtnText">Completa</span>
       </button>
 
-      <button id="btnAspect" class="pbtn pbtn-aspect" aria-label="Relación de aspecto" title="Relación de aspecto" tabindex="0">
+      <button id="btnAspect" class="pbtn pbtn-aspect" aria-label="RelaciÃ³n de aspecto" title="RelaciÃ³n de aspecto" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#9634;</span>
         <span class="pbtnText">Aspecto</span>
       </button>
 
-      <button id="btnInfo" class="pbtn pbtn-info" aria-label="Información del canal" title="Información" tabindex="0">
+      <button id="btnInfo" class="pbtn pbtn-info" aria-label="InformaciÃ³n del canal" title="InformaciÃ³n" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#9432;</span>
         <span class="pbtnText">Info</span>
       </button>
@@ -188,13 +188,13 @@
   <div class="helpBox">
     <h3>Atajos del mando</h3>
     <ul>
-      <li><b>OK</b> Reproducir canal / activar botón</li>
-      <li><b>↑ / ↓</b> Subir / bajar un canal</li>
-      <li><b>← / →</b> Retroceder / avanzar una página (4 canales)</li>
-      <li><b>BACK</b> Volver / cerrar búsqueda / limpiar filtro</li>
-      <li><b>En el reproductor:</b> ← canal anterior · → canal siguiente · ↑ silenciar · ↓ recargar</li>
-      <li><b>Menú 🎲</b> Canal aleatorio</li>
-      <li><b>Menú ?</b> Esta ayuda</li>
+      <li><b>OK</b> Reproducir canal / activar botÃ³n</li>
+      <li><b>â†‘ / â†“</b> Subir / bajar un canal</li>
+      <li><b>â† / â†’</b> Retroceder / avanzar una pÃ¡gina (4 canales)</li>
+      <li><b>BACK</b> Volver / cerrar bÃºsqueda / limpiar filtro</li>
+      <li><b>En el reproductor:</b> â† canal anterior Â· â†’ canal siguiente Â· â†‘ silenciar Â· â†“ recargar</li>
+      <li><b>MenÃº ðŸŽ²</b> Canal aleatorio</li>
+      <li><b>MenÃº ?</b> Esta ayuda</li>
     </ul>
     <button id="btnCloseHelp" tabindex="0">Cerrar</button>
   </div>
@@ -216,9 +216,9 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=64"></script>
-<script src="js/epg.js?v=64"></script>
-<script src="js/player.js?v=64"></script>
-<script src="js/app.js?v=64"></script>
+<script src="js/config.js?v=66"></script>
+<script src="js/epg.js?v=66"></script>
+<script src="js/player.js?v=66"></script>
+<script src="js/app.js?v=66"></script>
 </body>
 </html>
