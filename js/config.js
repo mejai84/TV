@@ -62,6 +62,19 @@ var CONFIG = {
   },
 
   /**
+   * nsrplay.space ("API Embed") — proveedor de embeds.
+   * Su API key se envia en cada request como header X-API-Key o
+   * parametro ?apiKey=. IMPORTANTE: al estar en el bundle del cliente,
+   * la clave es visible para cualquiera que inspeccione el codigo.
+   * Si quieres mantenerla secreta, proxea las llamadas por /api/stream-player
+   * y guarda la clave en una variable de entorno de Vercel.
+   */
+  nsrplay: {
+    apiKey: 'np_live_38f15fb19b814a064817fa2f4597502f209564c8081e28cf',
+    baseUrl: 'https://nsrplay.space'
+  },
+
+  /**
    * Listas de iptv-org (https://github.com/iptv-org/iptv).
    *
    * El sitio publica playlists M3U por pais, idioma, categoria y region.
@@ -798,7 +811,11 @@ EmbedAdapter.prototype._embedUrl = function (provider, item) {
     case 'vimeus':
       return 'https://vimeus.com/embed/' + typePath + '/' + encodeURIComponent(id);
     case 'nasriplay':
-      return 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
+      var nsrKey = (CONFIG.nsrplay && CONFIG.nsrplay.apiKey) || '';
+      var nsrBase = (CONFIG.nsrplay && CONFIG.nsrplay.baseUrl) || 'https://nsrplay.space';
+      var nsrUrl = nsrBase + '/embed/' + typePath + '/' + encodeURIComponent(id);
+      if (nsrKey) nsrUrl += '?apiKey=' + encodeURIComponent(nsrKey);
+      return nsrUrl;
     case 'peliapi-player':
       return '/api/stream-player?source=peliapi-player&type=' + typePath + '&id=' + encodeURIComponent(id);
     default:
