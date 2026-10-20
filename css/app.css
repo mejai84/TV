@@ -1355,12 +1355,15 @@ body.embeds-mode #btnSearch { display: none !important; }
    DETALLE DE PELÍCULA / SERIE
    ============================================================ */
 .detailScreen {
+  position: fixed;
+  inset: 0;
   height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: #070c15;
   scrollbar-width: thin;
   scrollbar-color: #1e3050 transparent;
+  z-index: 5;
 }
 .detailHero { position: relative; overflow: hidden; }
 .detailHeroBg { position: absolute; inset: 0; }
