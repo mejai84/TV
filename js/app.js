@@ -828,8 +828,8 @@
       } else {
         html += '<div class="chanBg"></div>' +
           (it.poster
-            ? '<img class="chanLogo" src="' + Utils.esc(it.poster) + '" alt="" loading="lazy" ' +
-              'onerror="this.remove()">'
+            ? '<img class="chanLogo" src="' + Utils.esc(it.poster) + '" alt="" loading="eager" ' +
+              'decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">'
             : '') +
           '<span class="chanInitials">' + Utils.esc(channelInitials(it.title)) + '</span>' +
           '<span class="pKind live">EN VIVO</span>' +
@@ -1563,6 +1563,7 @@
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
     var detailUI = $('detailScreen');
     if (detailUI) detailUI.style.display = (name === 'detail') ? 'block' : 'none';
+    if (name === 'detail' && detailUI) { try { detailUI.scrollTop = 0; } catch (e) {} }
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
 
     // En Películas/Series el reproductor deja de ser pantalla completa:
@@ -1712,6 +1713,10 @@
                 renderShelves();
               }
               paintFocus(); revealCard();
+              var jumpNode = cardNode();
+              if (jumpNode) {
+                try { jumpNode.focus({ preventScroll: true }); } catch (e4) { jumpNode.focus(); }
+              }
               e.preventDefault(); return;
             }
           }
@@ -1930,6 +1935,12 @@
 
     showScreen('detail');
 
+    // Deja el foco en "Ver" para que el mando pueda reproducir de inmediato.
+    var playBtn = $('btnDetailPlay');
+    if (playBtn) {
+      try { playBtn.focus({ preventScroll: true }); } catch (e) { playBtn.focus(); }
+    }
+
     if (isSeries) {
       if (item.slug) loadFromNasriplay(item);
       else loadSeasonsFromTmdb(item);
@@ -1994,9 +2005,14 @@
           for (var j = 0; j < list.length; j++) {
             var rawTitle = String(list[j].title || '');
             var name = 'Episodio ' + list[j].number;
-            // NasriPlay repite "Serie 1x1" como título: en ese caso usamos
-            // un nombre limpio y dejamos el número como referencia.
-            if (rawTitle && !/\d+\s*x\s*\d+/.test(rawTitle)) name = rawTitle;
+            // NasriPlay antepone el nombre de la serie y "1x1" al título.
+            // Si queda un título real lo usamos; si no, "Episodio N".
+            if (rawTitle) {
+              var cleaned = rawTitle
+                .replace(/^.*?\d+\s*x\s*\d+\s*[-–:·]?\s*/i, '')
+                .trim();
+              if (cleaned) name = cleaned;
+            }
             eps.push({ number: list[j].number, name: name, still: '' });
           }
           totalEps += eps.length;

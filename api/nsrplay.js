@@ -12,6 +12,37 @@
 
 const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
+/**
+ * Algunos campos de NasriPlay llegan con el UTF-8 interpretado como Latin-1
+ * ("niÃ±a" en vez de "niña"). Se re-codifica solo cuando el resultado es
+ * UTF-8 válido, para no romper textos que ya venían bien.
+ */
+function fixEncoding(value) {
+  if (typeof value !== 'string') return value;
+  if (!/[\u00C2\u00C3]/.test(value)) return value;
+  try {
+    var bytes = Buffer.from(value, 'latin1');
+    var fixed = bytes.toString('utf8');
+    if (fixed.indexOf('\uFFFD') === -1) return fixed;
+  } catch (e) { /* se deja como vino */ }
+  return value;
+}
+
+function cleanMetadata(value) {
+  if (typeof value === 'string') return fixEncoding(value);
+  if (Array.isArray(value)) {
+    for (var i = 0; i < value.length; i++) value[i] = cleanMetadata(value[i]);
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    for (var k in value) {
+      if (Object.prototype.hasOwnProperty.call(value, k)) value[k] = cleanMetadata(value[k]);
+    }
+    return value;
+  }
+  return value;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -88,6 +119,16 @@ export default async function handler(req, res) {
     try {
       var ri = await fetch(infoUrl, { headers: key ? { 'X-API-Key': key } : {} });
       var di = await ri.json();
+      // Sinopsis, reparto y títulos llegan a veces con el UTF-8 mal decodificado.
+      if (di && di.data) {
+        cleanMetadata(di.data);
+        if (typeof di.data.originalTitle === 'string') {
+          di.data.originalTitle = di.data.originalTitle
+            .replace(/^[\s@]+/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+      }
       res.status(ri.status).json(di);
     } catch (e) {
       res.status(502).json({ error: 'no se pudo contactar con nsrplay: ' + e.message });

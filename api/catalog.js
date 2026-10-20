@@ -15,6 +15,20 @@
 
 const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
+/**
+ * NasriPlay devuelve algunos textos con el UTF-8 interpretado como Latin-1
+ * ("niÃ±a" en vez de "niña"). Se re-codifica solo si el resultado es válido.
+ */
+function fixEncoding(value) {
+  if (typeof value !== 'string') return value;
+  if (!/[\u00C2\u00C3]/.test(value)) return value;
+  try {
+    var fixed = Buffer.from(value, 'latin1').toString('utf8');
+    if (fixed.indexOf('\uFFFD') === -1) return fixed;
+  } catch (e) { /* se deja como vino */ }
+  return value;
+}
+
 function cleanTitle(t) {
   return String(t || '')
     .replace(/^\s*ver\s+/i, '')
@@ -31,12 +45,12 @@ function normResolved(list, kind) {
     if (!id) continue;
     out.push({
       id: String(id),
-      title: x.title || x.originalTitle || 'Sin título',
+      title: fixEncoding(x.title || x.originalTitle || 'Sin título'),
       kind: kind,
       poster: x.poster || '',
       year: String(x.year || ''),
       rating: x.rating == null ? '' : String(x.rating),
-      description: (x.genres || []).join(' · ')
+      description: fixEncoding((x.genres || []).join(' · '))
     });
   }
   return out;
@@ -51,12 +65,12 @@ function normCatalog(list, kind) {
     out.push({
       id: String(slug),
       slug: String(slug),
-      title: cleanTitle(x.title) || 'Sin título',
+      title: cleanTitle(fixEncoding(x.title)) || 'Sin título',
       kind: kind,
       poster: x.poster || '',
       year: '',
       rating: x.rating == null ? '' : String(x.rating),
-      description: x.provider ? ('Fuente: ' + x.provider) : ''
+      description: x.provider ? ('Fuente: ' + fixEncoding(x.provider)) : ''
     });
   }
   return out;
