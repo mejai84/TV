@@ -279,6 +279,66 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   margin: 0;
 }
 
+/* Base de la ficha: sin esto el logo se pinta a tamano natural y el
+   texto queda en linea, que es justo lo que se veia en pantalla. */
+.card {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+.thumb {
+  position: relative;
+  width: 100%; padding-bottom: 56.25%;
+  background: #111d2f center / cover no-repeat;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.thumb.blank { background: linear-gradient(150deg, #132238, #0a1322); }
+.thumb img {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  width: 100%; height: 100%; padding: 7%; object-fit: contain;
+  transition: transform 0.22s ease;
+}
+
+.badge {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 9px; font-weight: 700; letter-spacing: .8px;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(135deg, #ff4d5e 0%, #e11d48 100%);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(255, 77, 94, 0.45);
+}
+.badge::before {
+  content: ""; display: inline-block;
+  width: 5px; height: 5px;
+  background: #fff; border-radius: 50%;
+  box-shadow: 0 0 4px rgba(255,255,255,0.8);
+}
+
+.ttl {
+  margin-top: 9px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px; font-weight: 600; line-height: 1.35;
+  color: #94a3b8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.onair {
+  display: block; margin-top: 2px;
+  font-size: 11px; font-weight: 500;
+  color: #5db4ff;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* Ficha vertical: foto a la izquierda, titulo a la derecha. */
 .card.verticalCard {
   display: flex;
