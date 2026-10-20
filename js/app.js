@@ -31,7 +31,7 @@
   }
 
   /** Caratulas que se pintan de golpe en una estanteria. */
-  var CHUNK = 40;
+  var CHUNK = 4;
 
   /* ---------------------------------------------------------------- *
    * Categorias de iptv-org: vienen en ingles y agrupadas con ';', asi que
@@ -166,6 +166,7 @@
 
   var player = null;
   var guide = null;
+  var playerControlsTimer = null;
   var el = {};
   function $(id) { return document.getElementById(id); }
 
@@ -266,8 +267,28 @@
     if (btnMute) btnMute.addEventListener('click', function () { toggleMute(); });
     var btnFs = $('btnFullscreen');
     if (btnFs) btnFs.addEventListener('click', function () { toggleFullscreen(); });
+    var btnAspect = $('btnAspect');
+    if (btnAspect) btnAspect.addEventListener('click', function () { toggleAspect(); });
+    var btnInfo = $('btnInfo');
+    if (btnInfo) btnInfo.addEventListener('click', function () { showChannelInfo(); });
     var btnSource = $('btnSourceSelect');
     if (btnSource) btnSource.addEventListener('click', function () { cycleSource(); });
+
+    // Auto-ocultar los controles del reproductor tras unos segundos.
+    if (el.video) {
+      el.video.addEventListener('click', function () {
+        if (state.screen !== 'player') return;
+        var ov = el.playerUI.querySelector('.overlay');
+        if (!ov) return;
+        if (ov.className.indexOf('hidden') > -1) {
+          showPlayerControls();
+          resetPlayerControlsTimer();
+        } else {
+          if (playerControlsTimer) clearTimeout(playerControlsTimer);
+          ov.className += ' hidden';
+        }
+      });
+    }
 
     // Cargar favoritos y recientes
     loadFavorites();
@@ -364,9 +385,11 @@
       var hits = buscar(state.query);
       state.groups = [{ name: 'Resultados', theme: 'all', items: hits,
                         artificial: true, all: true }];
+      state.shown = { 0: hits.length };
     } else {
       state.groups = [{ name: 'Todos los canales', theme: 'all',
                         items: state.items }];
+      state.shown = { 0: CHUNK };
     }
 
     updateSearchUi();
@@ -754,6 +777,45 @@
     }
   }
 
+  function toggleAspect() {
+    var modes = ['contain', 'cover', 'fill'];
+    if (state.aspectIdx === undefined) state.aspectIdx = 0;
+    state.aspectIdx = (state.aspectIdx + 1) % modes.length;
+    if (el.video) el.video.style.objectFit = modes[state.aspectIdx];
+    toast('Aspecto: ' + modes[state.aspectIdx]);
+    resetPlayerControlsTimer();
+  }
+
+  function showChannelInfo() {
+    if (!state.playing) return;
+    var it = state.playing;
+    var msg = it.title || '';
+    if (it.group) msg += ' · ' + it.group;
+    if (it.tvgId) msg += ' · ' + it.tvgId;
+    toast(msg);
+    resetPlayerControlsTimer();
+  }
+
+  function showPlayerControls() {
+    if (!el.playerUI) return;
+    var ov = el.playerUI.querySelector('.overlay');
+    if (ov) ov.className = ov.className.replace(/\s*hidden\b/, '');
+  }
+
+  function hidePlayerControls() {
+    if (!el.playerUI || state.stopped) return;
+    var ov = el.playerUI.querySelector('.overlay');
+    if (ov && ov.className.indexOf('hidden') === -1) ov.className += ' hidden';
+  }
+
+  function resetPlayerControlsTimer() {
+    showPlayerControls();
+    if (playerControlsTimer) clearTimeout(playerControlsTimer);
+    if (state.screen === 'player' && !state.stopped) {
+      playerControlsTimer = setTimeout(hidePlayerControls, 4000);
+    }
+  }
+
   function toggleSearch() {
     if (state.searchOpen) {
       closeSearch();
@@ -896,6 +958,8 @@
     try { el.video.load(); } catch (e) { /* navegadores viejos */ }
 
     state.stopped = true;
+    if (playerControlsTimer) { clearTimeout(playerControlsTimer); playerControlsTimer = null; }
+    showPlayerControls();
     var aviso = $('playerStopped');
     if (aviso) aviso.style.display = 'block';
     el.status.textContent = 'Emision detenida';
@@ -905,7 +969,6 @@
   /** Volver: cierra el reproductor y regresa a la lista de canales. */
   function goBackToList() {
     if (state.stopped) {
-      // Ya estaba parado: solo hay que cerrar la pantalla.
       state.stopped = false;
       var aviso = $('playerStopped');
       if (aviso) aviso.style.display = 'none';
@@ -929,6 +992,13 @@
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
     if (name !== 'player') player.stop(true);
+    if (name === 'player') {
+      showPlayerControls();
+      resetPlayerControlsTimer();
+    } else {
+      if (playerControlsTimer) { clearTimeout(playerControlsTimer); playerControlsTimer = null; }
+      showPlayerControls();
+    }
 
     el.tabCatalog.className = (name === 'catalog') ? 'active' : '';
     el.tabGuide.className   = (name === 'guide')   ? 'active' : '';
@@ -964,6 +1034,7 @@
           } else {
             var p = el.video.play(); if (p && p.catch) p.catch(function () {});
           }
+          resetPlayerControlsTimer();
         }
         e.preventDefault(); return;
       }
@@ -986,6 +1057,7 @@
       }
 
       if (state.screen === 'player') {
+        resetPlayerControlsTimer();
         if (isKey(e, KEY.RIGHT)) { playNextChannel(); e.preventDefault(); return; }
         if (isKey(e, KEY.LEFT))  { playPrevChannel(); e.preventDefault(); return; }
         if (isKey(e, KEY.UP))    { toggleMute(); e.preventDefault(); return; }
@@ -1019,7 +1091,7 @@
     var total = g.items.length;
     var limit = Math.min(total, state.shown[0] || CHUNK);
     var hayMas = limit < total;
-    var PAGINA = 8;
+    var PAGINA = 4;
 
     if (dc) {
       if (dc > 0) {
