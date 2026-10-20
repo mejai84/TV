@@ -841,33 +841,55 @@ EmbedAdapter.prototype.resolve = function (item) {
   var self = this;
   var id = item && item.id;
   if (!id) return Promise.resolve([]);
-  var candidates = [];
-  for (var i = 0; i < self.providers.length; i++) {
-    var url = self._embedUrl(self.providers[i], item);
-    if (url) candidates.push({ provider: self.providers[i], url: url });
-  }
+  var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
+  var typePath = isSeries ? 'tv' : 'movie';
+  var season = (item && item.season) || '';
+  var episode = (item && item.episode) || '';
 
-  // Los proveedores publicos (vidsrc, vidlink, vimeus) ya tienen URL final.
-  // Los que pasan por /api/stream-player necesitan un fetch para resolver
-  // la URL final (que incluye la API key inyectada server-side).
   var results = [];
   var pending = [];
-  for (var j = 0; j < candidates.length; j++) {
-    (function (c) {
-      if (c.url.indexOf('/api/stream-player') === 0) {
+
+  for (var i = 0; i < self.providers.length; i++) {
+    var provider = self.providers[i];
+
+    if (provider === 'nasriplay') {
+      // Modo avanzado: 2 pasos para obtener playUrl (sin anuncios, directo).
+      // Paso 1: sources. Paso 2: resolve del primer token.
+      // Si falla, cae al modo iframe (embed) como respaldo.
+      (function (prov) {
         pending.push(
-          fetch(c.url).then(function (r) { return r.json(); })
-            .then(function (data) {
-              if (data && data.url) {
-                results.push({ url: data.url, quality: 'FHD', headers: {}, expiresAt: 0 });
-              }
-            })
-            .catch(function () { /* proveedor no disponible, se omite */ })
+          (function () {
+            var srcUrl = '/api/nsrplay?action=sources&type=' + encodeURIComponent(typePath) + '&id=' + encodeURIComponent(id);
+            if (isSeries && season && episode) srcUrl += '&season=' + encodeURIComponent(season) + '&episode=' + encodeURIComponent(episode);
+            return fetch(srcUrl).then(function (r) { return r.json(); }).then(function (data) {
+              var servers = (data && data.servers) || (data && data.data && data.data.servers) || [];
+              if (!servers.length) throw new Error('sin servidores');
+              // Resolver el primer servidor disponible.
+              var srv = servers[0];
+              var token = srv.token || srv.id || srv.serverToken;
+              if (!token) throw new Error('sin token');
+              return fetch('/api/nsrplay?action=resolve&token=' + encodeURIComponent(token)).then(function (r2) { return r2.json(); }).then(function (d2) {
+                var playUrl = (d2 && (d2.playUrl || d2.play_url || d2.url)) || null;
+                if (playUrl) {
+                  results.push({ url: playUrl, quality: 'FHD', headers: {}, expiresAt: 0 });
+                } else {
+                  throw new Error('sin playUrl');
+                }
+              });
+            }).catch(function () {
+              // Respaldo: iframe directo (con anuncios, pero funciona).
+              var fallback = 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
+              if (isSeries && season && episode) fallback += '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
+              results.push({ url: fallback, quality: 'FHD', headers: {}, expiresAt: 0 });
+            });
+          })()
         );
-      } else {
-        results.push({ url: c.url, quality: 'FHD', headers: {}, expiresAt: 0 });
-      }
-    })(candidates[j]);
+      })(provider);
+    } else {
+      // Proveedores publicos: URL directa de embed (iframe).
+      var url = self._embedUrl(provider, item);
+      if (url) results.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
+    }
   }
 
   if (pending.length === 0) return Promise.resolve(results);
