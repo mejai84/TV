@@ -58,7 +58,10 @@ var CONFIG = {
    * El orden es el de preferencia (el primero que cargue gana).
    */
   embeds: {
-    providers: ['vidsrc', 'vidlink', 'vimeus', 'nasriplay']
+    // Reproducción directa con embeds públicos: no consume la cuota de
+    // NasriPlay. Para volver a usar playUrl sin anuncios, abre la app con
+    // ?nsr=on (se añade 'nasriplay' a la lista en buildAdapter).
+    providers: ['vidsrc', 'vidlink', 'vimeus']
   },
 
   /**
@@ -308,15 +311,30 @@ var Utils = {
  * hls.js exige Access-Control-Allow-Origin en el manifiesto y en cada
  * segmento. Casi ningun servidor de television lo envia, y sin el proxy el
  * navegador bloquea antes de mirar el contenido. serve.py reescribe las URLs
- * para que vuelvan a pasar por el y añade la cabecera.
+ * Para que vuelvan a pasar por el y añade la cabecera.
  *
- * Si abres la app por file:// o desde un servidor sin proxy, pon
- * useProxy:false y solo funcionaran los streams que ya traigan CORS.
+ * Por defecto esta apagado (consume datos y cuota). Se enciende con el boton
+ * "Proxy" de la barra o con ?proxy=on; el boton lo recuerda en localStorage.
  * ------------------------------------------------------------------ */
 var PROXY = {
-  // Prueba diagnostica: ?proxy=off intenta abrir los streams directamente.
-  // Por defecto se conserva el proxy, necesario para los origenes sin CORS.
-  useProxy: !/(?:[?&])proxy=off(?:&|$)/i.test(window.location.search || ''),
+  // Por defecto se reproduce directo: el proxy de streaming consume mucho
+  // ancho de banda y agota la cuota. Se activa a propósito con ?proxy=on
+  // o con el botón "Proxy" de la barra (se recuerda en localStorage).
+  useProxy: (function () {
+    try {
+      if (/(?:[?&])proxy=on(?:&|$)/i.test(window.location.search || '')) return true;
+      return localStorage.getItem('tv_proxy') === '1';
+    } catch (e) { return false; }
+  })(),
+
+  /** Activa o desactiva el proxy y recuerda la elección entre visitas. */
+  set: function (on) {
+    this.useProxy = !!on;
+    try { localStorage.setItem('tv_proxy', on ? '1' : '0'); } catch (e) { /* file:// */ }
+  },
+
+  /** ¿Está el proxy activado ahora mismo? */
+  isOn: function () { return !!this.useProxy; },
 
   /**
    * Ruta del proxy. Hay dos porque viven en sitios distintos:
@@ -416,7 +434,8 @@ M3UAdapter.prototype.list = function () {
 };
 
 M3UAdapter.prototype.resolve = function (item) {
-  // Todo pasa por el proxy: sin el, la mayoria de canales no reproduce.
+  // Directo por defecto. Con ?proxy=on se fuerza el proxy CORS para los
+  // canales que no mandan Access-Control-Allow-Origin.
   return Promise.resolve([{ url: PROXY.wrap(item._url), quality: 'auto', headers: {}, expiresAt: 0 }]);
 };
 
@@ -733,7 +752,9 @@ function EmbedAdapter(opts) {
   this.tmdbKey = (opts && opts.tmdbKey) || '';
   this.tmdbBase = (opts && opts.tmdbBase) || 'https://api.themoviedb.org/3';
   this.tmdbLang = (opts && opts.tmdbLang) || 'es-ES';
-  this.providers = (opts && opts.providers) || ['vidsrc', 'vidlink', 'vimeus', 'nasriplay'];
+  this.providers = (opts && opts.providers) || ['vidsrc', 'vidlink', 'vimeus'];
+  // La API de NasriPlay solo se usa si se pide explícitamente con ?nsr=on.
+  this.useNasriplay = !!(opts && opts.useNasriplay);
 }
 
 EmbedAdapter.prototype._tmdb = function (path) {
@@ -906,11 +927,28 @@ EmbedAdapter.prototype._resolveBySlug = function (item) {
 
 EmbedAdapter.prototype.resolve = function (item) {
   var self = this;
+  if (!item) return Promise.resolve([]);
+
+  // Las series del catálogo NasriPlay se enriquecen en /api/catalog con un
+  // tmdbId. Con ese ID se usan los embeds públicos y no se gasta cuota.
+  if (item.tmdbId) {
+    item = {
+      id: String(item.tmdbId),
+      kind: item.kind,
+      season: item.season,
+      episode: item.episode,
+      title: item.title
+    };
+  }
+
   var id = item && item.id;
   if (!id) return Promise.resolve([]);
 
-  // Items del catálogo de NasriPlay (slug): flujo info/servers -> resolve-url.
-  if (item && item.slug) return this._resolveBySlug(item);
+  // Item del catálogo NasriPlay sin tmdbId (no se pudo emparejar): el flujo
+  // por slug solo está disponible si se activó ?nsr=on.
+  if (item.slug) {
+    return this.useNasriplay ? this._resolveBySlug(item) : Promise.resolve([]);
+  }
 
   var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
   var typePath = isSeries ? 'tv' : 'movie';
@@ -1055,12 +1093,20 @@ function buildAdapter(name) {
         userToken: '',
         lang: 'pt'
       });
-    case 'embeds':
+    case 'embeds': {
+      var useNsr = false;
+      try {
+        useNsr = /(?:[?&])nsr=on(?:&|$)/i.test(window.location.search || '');
+      } catch (e) { /* sin location.search */ }
+      var providers = ((CONFIG.embeds && CONFIG.embeds.providers) || ['vidsrc', 'vidlink', 'vimeus']).slice();
+      if (useNsr && providers.indexOf('nasriplay') === -1) providers.push('nasriplay');
       return new EmbedAdapter({
         tmdbKey: (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '',
         tmdbBase: (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3',
         tmdbLang: (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES',
-        providers: (CONFIG.embeds && CONFIG.embeds.providers) || ['vidsrc', 'vidlink', 'vimeus', 'nasriplay']
+        providers: providers,
+        useNasriplay: useNsr
       });
+    }
   }
 }

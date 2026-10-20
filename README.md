@@ -24,7 +24,7 @@ Si la tele no conecta, abre el puerto 8777 en el cortafuegos de Windows.
 
 ---
 
-## El proxy no es opcional
+## Proxy de streaming
 
 `hls.js` necesita `Access-Control-Allow-Origin` en el manifiesto **y en cada
 segmento**. Casi ningún servidor de televisión lo envía, así que el navegador
@@ -34,14 +34,22 @@ nada: la respuesta es una pantalla negra.
 Por eso las apps nativas usan ExoPlayer o ijkplayer — a ellos no les aplica la
 política de origen cruzado.
 
-`serve.py` resuelve esto: sirve los estáticos y expone
-`/proxy/stream?u=<url>`, que descarga el manifiesto remoto, **reescribe** todas
-las URLs internas para que vuelvan a pasar por el proxy, y añade CORS. Cubre
-líneas sueltas (segmentos y variantes), atributos `URI="..."` en
-`#EXT-X-MEDIA` / `#EXT-X-KEY` / `#EXT-X-MAP`, y playlists M3U/IPTV.
+El proxy resuelve esto: `serve.py` expone `/proxy/stream?u=<url>` y la versión de
+Vercel `api/stream.js` expone `/api/stream?u=<url>`. El proxy descarga el
+manifiesto remoto, **reescribe** todas las URLs internas para que vuelvan a pasar
+por él y añade CORS. Cubre líneas sueltas (segmentos y variantes), atributos
+`URI="..."` en `#EXT-X-MEDIA` / `#EXT-X-KEY` / `#EXT-X-MAP`, y playlists
+M3U/IPTV.
 
-Los segmentos binarios se retransmiten en bloques de 64 KB sin cargar el
-fichero entero en memoria.
+**Está apagado por defecto**, porque retransmitir los segmentos consume datos y
+cuota. Hay dos formas de encenderlo:
+
+- **Botón “Proxy”** de la barra superior: lo activa o desactiva y recuerda la
+  elección en `localStorage` de ese navegador. Si hay un canal en marcha, se
+  reconecta solo.
+- **`?proxy=on`** en la URL: lo fuerza mientras esa URL esté abierta.
+
+Los embeds de películas y series no usan el proxy.
 
 Bloquea destinos privados. Con `--allow-private` se desactiva, para cuando el
 contenido legítimo esté en tu LAN.
@@ -61,8 +69,8 @@ Sin parámetros la app carga el índice completo de iptv-org (11 262 canales).
 Para acotarlo, `?cc=es`, `?cc=mx`, `?cc=movies`… También se cambia desde el
 lateral, en la sección **Listas**.
 
-Las URLs de una M3U pasan por el proxy automáticamente. No hay que hacer nada
-más.
+Las URLs de una M3U se reproducen directas por defecto. Si un canal no carga
+por CORS, pulsa el botón **Proxy** de la barra (o abre la app con `?proxy=on`).
 
 Muchos canales de las listas abiertas están **bloqueados geográficamente** y no
 reproducen fuera de su país; la propia lista lo marca con `[Geo-blocked]`.
@@ -84,6 +92,53 @@ reproductor pasa al siguiente sin intervención.
 `ProviderAdapter` ya está escrito: el esquema observado en el cliente nativo era
 JSON plano sobre POST, con `portalCode` + `userToken`. Rellena `base`,
 `portalCode` y `userToken` en `buildAdapter()`.
+
+---
+
+## Contenido bajo demanda (películas y series)
+
+Además de la TV en vivo, la app puede servir VOD desde NasriPlay
+(`?src=embeds`, accesos **Películas / Series / Novedades** de la banda superior).
+NasriPlay **no aloja vídeo**: indexa proveedores públicos al momento.
+
+Flujo:
+
+```
+api/catalog.js   → Películas desde /content/resolved; Series desde /content/catalog
+api/novelties.js → títulos recientes (índice de resolución)
+api/scan.js      → cron diario que rellena la BD
+api/nsrplay.js   → proxy de la API avanzada (sources → resolve → playUrl)
+```
+
+La API key de NasriPlay vive en `NSRPLAY_API_KEY` (server-side).
+
+### Base de datos (Supabase) y novedades
+
+La BD es **opcional**. Sin ella, todo funciona con NasriPlay en caliente y
+`localStorage`. Con ella:
+
+- `api/catalog` sirve primero desde la tabla `titles` (rápido, sin gastar cuota).
+- `api/scan` corre una vez al día (`crons` en `vercel.json`), consulta
+  `/content/resolved` (películas y series) y hace *upsert* de metadatos.
+- `api/novelties` devuelve lo detectado en los últimos días.
+- La sección **Novedades** marca en dorado lo aún no visto (ventana de 14 días).
+
+Solo se guardan **metadatos** (id, título, año, póster, rating, géneros,
+fechas). Nunca enlaces: los `playUrl` son de un solo uso y caducan a los 5 min.
+
+Puesta en marcha:
+
+1. Crea un proyecto en <https://supabase.com>.
+2. En el **SQL Editor** ejecuta `supabase/schema.sql`.
+3. Copia `Project Settings → API`:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY` (solo servidor)
+4. Añade ambas como variables de entorno en Vercel (Production).
+5. Redespliega. `api/scan` se ejecutará solo cada día; para probar:
+   `curl -H "Authorization: Bearer $CRON_SECRET" https://<tu-dominio>/api/scan`
+   (o sin cabecera si no has puesto `CRON_SECRET`).
+
+No hace falta `package.json`: el cliente de la BD usa solo `fetch` (PostgREST).
 
 ---
 

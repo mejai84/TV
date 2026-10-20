@@ -188,6 +188,8 @@
    * ---------------------------------------------------------------- */
   function boot() {
     el.shelves   = $('shelves');
+    el.scrollHint= $('scrollHint');
+    el.band      = document.querySelector('.band');
     el.status    = $('playerStatus');
     el.playerUI  = $('playerScreen');
     el.catalogUI = $('catalogScreen');
@@ -197,6 +199,7 @@
     el.tabGuide  = $('tabGuide');
     el.clock     = $('clock');
     el.video     = $('video');
+    el.playerStage = $('playerStage');
     el.title     = $('nowTitle');
     el.quality   = $('quality');
     el.brand     = $('brand') || null;
@@ -205,6 +208,7 @@
     el.panel     = $('searchPanel');
     el.count     = $('searchCount');
     el.langBtn   = $('langSelect');
+    el.btnProxy  = $('btnProxy');
     el.btnPiP    = $('btnPiP');
 
     // Que lista esta cargada ahora, para marcarla en el lateral.
@@ -213,6 +217,7 @@
     // Idioma de la UI: ES (español), EN (inglés), PT (portugués)
     state.lang = localStorage.getItem('tv_lang') || 'es';
     updateLangUI();
+    updateProxyBtn();
 
     player = new Player(el.video, el.status);
     player.onError = function (m) { toast(m); };
@@ -259,6 +264,43 @@
     bindTabs();
     bindQuickNav();
     startClock();
+
+    // La banda puede medir una o dos filas segun el ancho. Se sincroniza
+    // con el CSS para que buscador y guia queden justo debajo.
+    syncBandHeight();
+    if (el.scrollHint) {
+      el.scrollHint.addEventListener('click', scrollShelvesPage);
+    }
+    if (el.shelves) {
+      el.shelves.addEventListener('scroll', updateScrollHint);
+    }
+    window.addEventListener('resize', function () {
+      syncBandHeight();
+      updateScrollHint();
+    });
+
+    // Doble clic (raton) o doble toque (telefono/tablet) sobre el video:
+    // pantalla completa. En modo embed el iframe del servidor se queda con
+    // el evento; alli se usa el boton "Completa" de la app.
+    if (el.playerStage) {
+      el.playerStage.addEventListener('dblclick', function (e) {
+        if (e.target && e.target.id === 'embedFrame') return;
+        toggleFullscreen();
+      });
+      var lastTap = 0;
+      el.playerStage.addEventListener('touchend', function (e) {
+        var target = e.target;
+        if (target && target.id !== 'video' && target !== el.playerStage) return;
+        var now = Date.now();
+        if (now - lastTap < 360) {
+          e.preventDefault();
+          toggleFullscreen();
+          lastTap = 0;
+        } else {
+          lastTap = now;
+        }
+      }, false);
+    }
 
     // Resultados en vivo: busqueda incremental con debounce de 300ms.
     // Evita que el motor se dispare en cada tecla en televisores lentos.
@@ -316,6 +358,9 @@
     if (btnShare) btnShare.addEventListener('click', function () { shareChannel(); });
     var btnSource = $('btnSourceSelect');
     if (btnSource) btnSource.addEventListener('click', function () { cycleSource(); });
+
+    var btnProxy = $('btnProxy');
+    if (btnProxy) btnProxy.addEventListener('click', function () { toggleProxy(); });
 
     var btnRandom = $('btnRandom');
     if (btnRandom) btnRandom.addEventListener('click', function () { playRandom(); });
@@ -461,9 +506,44 @@
     markSub.innerHTML = Utils.esc(parts.slice(1).join(' ').toUpperCase());
   }
 
+  /** Carga la sección Novedades desde el índice del servidor. */
+  function loadNovelties(lb) {
+    fetch('/api/novelties?days=14')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var items = (d && d.items) || [];
+        state.allItems = items;
+        state.failed = loadFailed();
+        state.items = state.allItems.filter(function (it) { return state.failed.indexOf(it.id) === -1; });
+        state.byId = {};
+        for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
+        buildGroups();
+        if (!state.items.length) {
+          el.shelves.innerHTML =
+            '<div class="epg-empty">Aun no hay novedades registradas.<br>' +
+            'Se detectan solas cuando el escáner diario corre y alguien resuelve un titulo.</div>';
+        }
+        if (lb) lb.className = 'loadingBar';
+      })
+      .catch(function (e) {
+        toast('No se pudo cargar novedades: ' + e.message);
+        el.shelves.innerHTML =
+          '<div class="epg-empty">No se pudo cargar novedades.<br>' +
+          Utils.esc(e.message) + '</div>';
+        if (lb) lb.className = 'loadingBar';
+      });
+  }
+
   function loadCatalog() {
     var lb = $('loadingBar');
     if (lb) lb.className = 'loadingBar on';
+
+    // Sección Novedades: no usa el adaptador, consulta el índice reciente.
+    if (isNoveltiesMode()) {
+      loadNovelties(lb);
+      return;
+    }
+
     state.adapter.list().then(function (items) {
       state.allItems = items || [];
       state.failed = loadFailed();
@@ -522,7 +602,45 @@
     if (!m) return 'movie';
     var k = m[1].toLowerCase();
     if (k === 'series' || k === 'tv') return 'series';
+    if (k === 'novelties') return 'novelties';
     return 'movie';
+  }
+
+  /** Sección "Novedades": índice reciente, sin crawler. */
+  function isNoveltiesMode() {
+    return catalogKind() === 'novelties';
+  }
+
+  function catalogTitle() {
+    if (isNoveltiesMode()) return 'Novedades';
+    return catalogKind() === 'series' ? 'Series' : 'Películas';
+  }
+
+  /* ---- Control local de "ya visto" para las novedades ------------------ */
+  function noveltySeenSet() {
+    try { return JSON.parse(localStorage.getItem('tv_novelty_seen') || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function isSeenNovelty(id) {
+    return noveltySeenSet().indexOf(id) !== -1;
+  }
+
+  function isNoveltyFresh(iso) {
+    var t = Date.parse(String(iso).replace(' ', 'T'));
+    if (!t) return false;
+    return (Date.now() - t) < 14 * 864e5; // 14 días
+  }
+
+  /** Marca un título de novedades como visto (al abrir su ficha). */
+  function touchNovelty(id) {
+    if (!id) return;
+    var seen = noveltySeenSet();
+    if (seen.indexOf(id) === -1) {
+      seen.push(id);
+      if (seen.length > 800) seen = seen.slice(-800);
+      try { localStorage.setItem('tv_novelty_seen', JSON.stringify(seen)); } catch (e) {}
+    }
   }
 
   function buildGroups() {
@@ -548,13 +666,13 @@
         hits = buscar('');
       }
       var name = state.query ? 'Resultados' : (isEmbedsMode()
-        ? (catalogKind() === 'series' ? 'Series' : 'Películas')
+        ? catalogTitle()
         : 'Todos los canales');
       state.groups = [{ name: name, theme: 'all', items: hits, artificial: !!state.query, all: true }];
       state.shown = { 0: isEmbedsMode() ? hits.length : Math.min(hits.length, 48) };
     } else {
       var baseName = isEmbedsMode()
-        ? (catalogKind() === 'series' ? 'Series' : 'Películas')
+        ? catalogTitle()
         : 'Todos los canales';
       state.groups = [{ name: baseName, theme: 'all', items: state.items }];
       state.shown = { 0: isEmbedsMode() ? state.items.length : 48 };
@@ -699,6 +817,42 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Altura de la banda y pista de desplazamiento.
+   *
+   * En movil la banda ocupa dos filas; el buscador y la guia se colocan
+   * con la variable --band-h. En el televisor, el mando mueve el foco y
+   * la cuadricula se desplaza, pero el usuario necesita una pista visual
+   * de que quedan filas abajo.
+   * ---------------------------------------------------------------- */
+  function syncBandHeight() {
+    if (!el.band) return;
+    var h = el.band.offsetHeight || 62;
+    try { document.documentElement.style.setProperty('--band-h', h + 'px'); } catch (e) {}
+  }
+
+  function updateScrollHint() {
+    if (!el.scrollHint || !el.shelves) return;
+    var s = el.shelves;
+    var more = (s.scrollHeight - s.scrollTop - s.clientHeight) > 16;
+    var show = more && state.screen === 'catalog';
+    if (show) el.scrollHint.className = 'scrollHint on';
+    else el.scrollHint.className = 'scrollHint';
+  }
+
+  function scrollShelvesPage() {
+    if (!el.shelves) return;
+    var max = el.shelves.scrollHeight - el.shelves.clientHeight;
+    if (max <= 0) return;
+    if (el.shelves.scrollTop >= max - 8) {
+      var mas = $('btnMas');
+      if (mas) { mas.click(); return; }
+    }
+    var step = Math.max(140, Math.round(el.shelves.clientHeight * 0.82));
+    el.shelves.scrollTop = Math.min(max, el.shelves.scrollTop + step);
+    updateScrollHint();
+  }
+
+  /* ---------------------------------------------------------------- *
    * Catálogo VOD estilo GoPelis: cabecera, filtros y cuadrícula 2:3.
    * ---------------------------------------------------------------- */
   function catalogGenres() {
@@ -708,7 +862,9 @@
       var parts = String(list[i].description || '').split(' · ');
       for (var j = 0; j < parts.length; j++) {
         var g = parts[j];
-        if (!g || /^fuente:/i.test(g)) continue;
+        // Descarta descripciones largas que algunos respaldos meten en el
+        // campo de género; un género real no pasa de unas pocas palabras.
+        if (!g || g.length > 24 || /^fuente:/i.test(g)) continue;
         if (!seen[g]) { seen[g] = 1; out.push(g); }
       }
     }
@@ -819,12 +975,16 @@
               '<div class="posterFrame">';
 
       if (embeds) {
-        html += (it.poster
+        var cardKind = (it.kind === 'series' || it.kind === 'tv') ? 'SERIE' : 'PELÍCULA';
+        var isNovel = isNoveltiesMode() && it.firstSeenAt &&
+          isNoveltyFresh(it.firstSeenAt) && !isSeenNovelty(it.id);
+        html += (isNovel ? '<span class="pNew">NUEVO</span>' : '') +
+          (it.poster
           ? '<img src="' + Utils.esc(it.poster) + '" alt="" loading="lazy">'
           : '<div class="thumb blank" style="position:absolute;inset:0;border:0;border-radius:0;padding:0;"></div>') +
           (it.rating ? '<span class="pRate">&#9733; ' + Utils.esc(it.rating) + '</span>' : '') +
           '<span class="pQual">HD</span>' +
-          '<span class="pKind">' + (isSeries ? 'SERIE' : 'PELÍCULA') + '</span>';
+          '<span class="pKind">' + cardKind + '</span>';
       } else {
         html += '<div class="chanBg"></div>' +
           (it.poster
@@ -887,6 +1047,7 @@
 
     var mas = $('btnMas');
     if (mas) mas.addEventListener('click', function () { verMas(); });
+    updateScrollHint();
   }
 
   function applyCatalogFilter() {
@@ -948,9 +1109,21 @@
       state.card = parseInt(node.getAttribute('data-card'), 10) || 0;
     }
     try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
-    if (node.scrollIntoView) {
-      try { node.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+
+    // scrollIntoView con opciones no funciona en varios navegadores de TV:
+    // el foco se movia pero la cuadricula no bajaba. Se ajusta el scroll
+    // del contenedor a mano, que es compatible con todos.
+    if (container && container.scrollHeight > container.clientHeight) {
+      var nr = node.getBoundingClientRect();
+      var cr = container.getBoundingClientRect();
+      var pad = 18;
+      if (nr.bottom > cr.bottom - pad) {
+        container.scrollTop += (nr.bottom - cr.bottom) + pad;
+      } else if (nr.top < cr.top + pad) {
+        container.scrollTop -= (cr.top - nr.top) + pad;
+      }
     }
+    updateScrollHint();
   }
 
   function spatialMove(container, dx, dy) {
@@ -1294,6 +1467,36 @@
     if (/[?&]contrast=1/.test(location.search)) document.body.className += ' alto-contraste';
   }
 
+  /* ---------------------------------------------------------------- *
+   * Proxy de streaming
+   *
+   * El proxy es optativo: gasta datos y ancho de banda, así que por
+   * defecto está apagado. El botón de la barra lo enciende o apaga y
+   * la elección se recuerda en localStorage; ?proxy=on también lo
+   * fuerza mientras la URL lo lleve.
+   * ---------------------------------------------------------------- */
+  function updateProxyBtn() {
+    var btn = el.btnProxy || $('btnProxy');
+    if (!btn) return;
+    var on = PROXY.isOn();
+    if (btn.classList) btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.setAttribute('title', on
+      ? 'Proxy activado: los canales pasan por el proxy (consumo extra). Pulsa para desactivar.'
+      : 'Activar proxy: los canales pasan por el proxy (consumo extra).');
+    var label = btn.querySelector ? btn.querySelector('.proxyLabel') : null;
+    if (label) label.textContent = on ? 'Proxy ON' : 'Proxy';
+  }
+
+  function toggleProxy() {
+    PROXY.set(!PROXY.isOn());
+    updateProxyBtn();
+    toast(PROXY.isOn() ? 'Proxy activado' : 'Proxy desactivado');
+    // Si hay un canal de TV en marcha, reconectar para que coja el proxy.
+    // Los embeds de películas/series no usan el proxy.
+    if (state.playing && state.playing.kind === 'live') reloadCurrentStream();
+  }
+
   function cycleFontSize() {
     state.fontSize = (state.fontSize + 1) % 3;
     try { localStorage.setItem('tv_font', state.fontSize); } catch (e) {}
@@ -1569,9 +1772,9 @@
     // En Películas/Series el reproductor deja de ser pantalla completa:
     // el vídeo va arriba y debajo el selector de capítulos (GoPelis).
     var vod = (name === 'player') && isEmbedsMode();
-    el.playerUI.className = vod ? 'vod' : '';
     var pePanel = $('playerEpisodePanel');
     var isSeriesPlay = !!(state.seriesItem && (state.seriesItem.kind === 'series' || state.seriesItem.kind === 'tv'));
+    el.playerUI.className = vod ? ('vod' + (isSeriesPlay ? ' has-episodes' : '')) : '';
     if (pePanel) pePanel.style.display = (vod && isSeriesPlay) ? 'block' : 'none';
     var btnEp = $('btnEpisodes');
     if (btnEp) btnEp.style.display = (vod && isSeriesPlay) ? 'inline-flex' : 'none';
@@ -1589,6 +1792,9 @@
 
     el.tabCatalog.className = (name === 'catalog') ? 'active' : '';
     el.tabGuide.className   = (name === 'guide')   ? 'active' : '';
+
+    syncBandHeight();
+    updateScrollHint();
 
     if (name === 'guide' && guide) guide.render();
   }
@@ -1917,6 +2123,7 @@
 
   function openDetail(item) {
     if (!item) return;
+    if (isNoveltiesMode()) touchNovelty(item.id);
     seriesOverlayState.item = item;
     seriesOverlayState.seasons = [];
     seriesOverlayState.episodes = [];
@@ -2170,6 +2377,7 @@
     var epItem = {
       id: item.id,
       slug: item.slug,
+      tmdbId: item.tmdbId,
       title: item.title + ' - T' + season + ' E' + episode,
       kind: 'series',
       season: season,

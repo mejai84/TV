@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=72">
+<link rel="stylesheet" href="css/app.css?v=75">
 </head>
 <body class="tv">
 
@@ -34,6 +34,10 @@
         <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v10a1.5 1.5 0 0 1-1.5 1.5H13v1.5h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3V17H4.5A1.5 1.5 0 0 1 3 15.5v-10Zm2 .5v9h14V6H5Z"/></svg>
         <span class="qnLabel">Series</span>
       </button>
+      <button class="qn" data-src="embeds" data-kind="novelties" tabindex="0">
+        <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z"/></svg>
+        <span class="qnLabel">Novedades</span>
+      </button>
       <button class="qn" data-src="iptvorg" data-kind="" tabindex="0">
         <svg class="qnIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm-1 5.1A8 8 0 0 1 20 15a1 1 0 1 1-2 0 6 6 0 0 0-12 0 1 1 0 1 1-2 0 8 8 0 0 1 7-7.9ZM12 11a4 4 0 0 1 4 4 1 1 0 1 1-2 0 2 2 0 0 0-4 0 1 1 0 1 1-2 0 4 4 0 0 1 4-4Zm0 5.9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>
         <span class="qnLabel">TV en Vivo</span>
@@ -51,6 +55,10 @@
 
     <div class="bandRight">
       <div class="tools">
+        <button id="btnProxy" class="proxyBtn" aria-label="Proxy de streaming" aria-pressed="false"
+                title="Proxy: reproduce los canales a través del proxy" tabindex="0">
+          <span class="proxyDot" aria-hidden="true"></span><span class="proxyLabel">Proxy</span>
+        </button>
         <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar País o Lista" title="Cambiar País o Región" tabindex="0">&#127760;</button>
         <button id="btnOpenSearch" class="icon" aria-label="Buscar canales" title="Buscar" tabindex="0">&#128269;</button>
         <button id="btnRandom" class="icon" aria-label="Canal aleatorio" title="Canal aleatorio" tabindex="0">&#127922;</button>
@@ -89,6 +97,14 @@
       <div id="shelves" class="rows" tabindex="0"></div>
     </main>
   </div>
+
+  <!-- Pista de desplazamiento para el mando: aparece cuando hay mas
+       filas por debajo. No entra en la navegacion espacial (tabindex=-1),
+       solo avisa de que se puede seguir bajando. -->
+  <button id="scrollHint" class="scrollHint" tabindex="-1" aria-hidden="true">
+    <span class="scrollHintArrow" aria-hidden="true">&#9660;</span>
+    <span>M&aacute;s contenido</span>
+  </button>
 </section>
 
 <!-- ================= GUIA ================= -->
@@ -221,6 +237,7 @@
       <li><b>BACK</b> Volver / cerrar búsqueda / limpiar filtro</li>
       <li><b>En el reproductor:</b> ← canal anterior · → canal siguiente · ↑ silenciar · ↓ recargar</li>
       <li><b>Menú 🎲</b> Canal aleatorio</li>
+      <li><b>Botón Proxy</b> Reproduce los canales a través del proxy CORS (gasta datos extra)</li>
       <li><b>Menú ?</b> Esta ayuda</li>
     </ul>
     <button id="btnCloseHelp" tabindex="0">Cerrar</button>
@@ -295,9 +312,9 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=72"></script>
-<script src="js/epg.js?v=72"></script>
-<script src="js/player.js?v=72"></script>
-<script src="js/app.js?v=72"></script>
+<script src="js/config.js?v=75"></script>
+<script src="js/epg.js?v=75"></script>
+<script src="js/player.js?v=75"></script>
+<script src="js/app.js?v=75"></script>
 </body>
 </html>
