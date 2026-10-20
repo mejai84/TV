@@ -533,8 +533,8 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
 .overlay {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  padding: 24px 32px 18px;
-  background: linear-gradient(to top, rgba(4, 9, 18, 0.88) 0%, rgba(4, 9, 18, 0.5) 38%, rgba(4, 9, 18, 0) 100%);
+  padding: 16px 24px 12px;
+  background: linear-gradient(to top, rgba(4, 9, 18, 0.78) 0%, rgba(4, 9, 18, 0.32) 32%, rgba(4, 9, 18, 0) 100%);
   display: flex;
   flex-direction: column;
   transition: opacity .35s ease;
@@ -553,7 +553,7 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
 .nowTitle {
   margin: 0;
   font-family: 'Outfit', sans-serif;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.3px;
   color: #ffffff;
@@ -611,25 +611,25 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
 .playerActions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .pbtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding: 0 14px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
   margin: 0;
   font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2px;
   color: #eaf2ff;
-  background: rgba(20, 35, 60, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 18px;
+  background: rgba(20, 35, 60, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
   cursor: pointer;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -1574,8 +1574,8 @@ body.embeds-mode #btnSearch { display: none !important; }
 #playerScreen.vod .playerStage {
   position: relative;
   height: 56.25vw;
-  max-height: 630px;
-  max-width: 1120px;
+  max-height: 78vh;
+  max-width: 100%;
   margin: 0 auto;
   overflow: hidden;
 }

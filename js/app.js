@@ -1619,7 +1619,7 @@
     showPlayerControls();
     if (playerControlsTimer) clearTimeout(playerControlsTimer);
     if (state.screen === 'player' && !state.stopped) {
-      playerControlsTimer = setTimeout(hidePlayerControls, 4000);
+      playerControlsTimer = setTimeout(hidePlayerControls, 3000);
     }
   }
 
