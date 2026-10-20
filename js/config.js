@@ -70,7 +70,10 @@ var CONFIG = {
    * y guarda la clave en una variable de entorno de Vercel.
    */
   nsrplay: {
-    apiKey: 'np_live_38f15fb19b814a064817fa2f4597502f209564c8081e28cf',
+    // La clave vive ahora en la variable de entorno NSRPLAY_API_KEY de Vercel.
+    // Este campo se mantiene por compatibilidad con desarrollo local; si lo
+    // rellenas, el cliente la usara directamente (menos seguro).
+    apiKey: '',
     baseUrl: 'https://nsrplay.space'
   },
 
@@ -811,13 +814,12 @@ EmbedAdapter.prototype._embedUrl = function (provider, item) {
     case 'vimeus':
       return 'https://vimeus.com/embed/' + typePath + '/' + encodeURIComponent(id);
     case 'nasriplay':
-      var nsrKey = (CONFIG.nsrplay && CONFIG.nsrplay.apiKey) || '';
-      var nsrBase = (CONFIG.nsrplay && CONFIG.nsrplay.baseUrl) || 'https://nsrplay.space';
-      var nsrUrl = nsrBase + '/embed/' + typePath + '/' + encodeURIComponent(id);
-      if (nsrKey) nsrUrl += '?apiKey=' + encodeURIComponent(nsrKey);
-      return nsrUrl;
     case 'peliapi-player':
-      return '/api/stream-player?source=peliapi-player&type=' + typePath + '&id=' + encodeURIComponent(id);
+      // Estos pasan por nuestro backend para que la API key de nsrplay
+      // no quede expuesta en el bundle del cliente.
+      return '/api/stream-player?source=' + encodeURIComponent(provider) +
+             '&type=' + encodeURIComponent(typePath) +
+             '&id=' + encodeURIComponent(id);
     default:
       return null;
   }
@@ -827,17 +829,40 @@ EmbedAdapter.prototype.resolve = function (item) {
   var self = this;
   var id = item && item.id;
   if (!id) return Promise.resolve([]);
-  var out = [];
+  var candidates = [];
   for (var i = 0; i < self.providers.length; i++) {
     var url = self._embedUrl(self.providers[i], item);
-    if (url) {
-      out.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
-    }
+    if (url) candidates.push({ provider: self.providers[i], url: url });
   }
-  // Las URLs de embed no pasan por el proxy HLS (son iframes, no .m3u8).
-  // Si quieres forzar proxy para alguna, anadela a providers y cambia
-  // _embedUrl para que devuelva '/api/stream?u=' + encodeURIComponent(url).
-  return Promise.resolve(out);
+
+  // Los proveedores publicos (vidsrc, vidlink, vimeus) ya tienen URL final.
+  // Los que pasan por /api/stream-player necesitan un fetch para resolver
+  // la URL final (que incluye la API key inyectada server-side).
+  var results = [];
+  var pending = [];
+  for (var j = 0; j < candidates.length; j++) {
+    (function (c) {
+      if (c.url.indexOf('/api/stream-player') === 0) {
+        pending.push(
+          fetch(c.url).then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.url) {
+                results.push({ url: data.url, quality: 'FHD', headers: {}, expiresAt: 0 });
+              }
+            })
+            .catch(function () { /* proveedor no disponible, se omite */ })
+        );
+      } else {
+        results.push({ url: c.url, quality: 'FHD', headers: {}, expiresAt: 0 });
+      }
+    })(candidates[j]);
+  }
+
+  if (pending.length === 0) return Promise.resolve(results);
+
+  return Promise.all(pending).then(function () {
+    return results;
+  });
 };
 
 EmbedAdapter.prototype.epg = function () {
