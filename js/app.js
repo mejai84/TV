@@ -154,6 +154,13 @@
     heroAt: 0,
     stopped: false,       // el canal se detuvo a proposito desde el reproductor
     playing: null,        // canal que se esta emitiendo, para poder reanudarlo
+    seriesItem: null,     // serie en reproduccion (para el selector de capítulos)
+    seriesSeason: 1,      // temporada actual del reproductor
+    seriesEpisode: 1,     // episodio actual del reproductor
+    panelSeason: 1,       // temporada visible en el selector del reproductor
+    catalogAll: [],       // catálogo VOD completo para los filtros
+    catalogGenre: '',     // filtro de género activo
+    catalogYear: '',      // filtro de año activo
     query: '',
     screen: 'catalog',
     zone: 'shelf',
@@ -522,6 +529,15 @@
     applyTheme('all');
     state.shown = {};
 
+    // Catálogo VOD: se muestran todos los títulos y los filtros de
+    // género/año trabajan sobre la lista completa en memoria.
+    if (isEmbedsMode()) {
+      state.catalogAll = state.items.slice();
+      state.catalogGenre = '';
+      state.catalogYear = '';
+      state.isFavsFilter = false;
+    }
+
     var hasFilter = (state.quickFilter && state.quickFilter !== 'all') || (state.sortBy && state.sortBy !== 'name');
 
     if (state.query || hasFilter) {
@@ -535,13 +551,13 @@
         ? (catalogKind() === 'series' ? 'Series' : 'Películas')
         : 'Todos los canales');
       state.groups = [{ name: name, theme: 'all', items: hits, artificial: !!state.query, all: true }];
-      state.shown = { 0: hits.length };
+      state.shown = { 0: isEmbedsMode() ? hits.length : Math.min(hits.length, 48) };
     } else {
       var baseName = isEmbedsMode()
         ? (catalogKind() === 'series' ? 'Series' : 'Películas')
         : 'Todos los canales';
       state.groups = [{ name: baseName, theme: 'all', items: state.items }];
-      state.shown = { 0: CHUNK };
+      state.shown = { 0: isEmbedsMode() ? state.items.length : 48 };
     }
 
     updateSearchUi();
@@ -678,54 +694,167 @@
       return;
     }
 
-    var total = g.items.length;
-    var limit = Math.min(total, state.shown[0] || CHUNK);
+    // Catálogo uniforme (TV, películas y series): cuadrícula estilo GoPelis.
+    renderCatalogPage(g);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Catálogo VOD estilo GoPelis: cabecera, filtros y cuadrícula 2:3.
+   * ---------------------------------------------------------------- */
+  function catalogGenres() {
+    var seen = {}, out = [];
+    var list = state.catalogAll || [];
+    for (var i = 0; i < list.length; i++) {
+      var parts = String(list[i].description || '').split(' · ');
+      for (var j = 0; j < parts.length; j++) {
+        var g = parts[j];
+        if (!g || /^fuente:/i.test(g)) continue;
+        if (!seen[g]) { seen[g] = 1; out.push(g); }
+      }
+    }
+    out.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    return out;
+  }
+
+  function catalogYears() {
+    var seen = {}, out = [];
+    var list = state.catalogAll || [];
+    for (var i = 0; i < list.length; i++) {
+      var y = String(list[i].year || '');
+      if (y && !seen[y]) { seen[y] = 1; out.push(y); }
+    }
+    out.sort(function (a, b) { return b - a; });
+    return out;
+  }
+
+  function channelInitials(title) {
+    var clean = String(title || '').replace(/[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ ]/g, ' ').trim();
+    var parts = clean.split(/\s+/);
+    var out = (parts[0] || '?').charAt(0);
+    if (parts[1]) out += parts[1].charAt(0);
+    return out.toUpperCase();
+  }
+
+  function renderCatalogPage(g) {
+    var embeds = isEmbedsMode();
+    var isSeries = embeds && catalogKind() === 'series';
+    var items = g.items || [];
+    var genres = embeds && !isSeries ? catalogGenres() : [];
+    var years = embeds && !isSeries ? catalogYears() : [];
+    var showFilters = !state.isFavsFilter && !isSeries && (genres.length || years.length);
+
+    var title = g.name || (embeds ? (isSeries ? 'Series' : 'Películas') : 'TV en Vivo');
+    if (title === 'Todos los canales') title = 'TV en Vivo';
+
+    var unit = embeds
+      ? (items.length === 1 ? ' título' : ' títulos')
+      : (items.length === 1 ? ' canal' : ' canales');
+
+    var total = items.length;
+    var initial = embeds ? total : 48;
+    var limit = Math.min(total, state.shown[0] || initial);
     var hayMas = limit < total;
 
-    var html = '<section class="shelf" data-shelf="0">' +
-               '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
-               '<em>' + total + (isEmbedsMode()
-                 ? (total === 1 ? ' título' : ' títulos')
-                 : (total === 1 ? ' canal' : ' canales')) + '</em>' +
-               '</div><div class="row verticalResults" id="row-0">';
+    var html = '<div class="catalogPage">' +
+      '<div class="catalogHead"><h1>' + Utils.esc(title) + '</h1>' +
+      '<span class="catalogCount">' + total + unit + '</span></div>';
 
+    html += '<div class="catalogLayout">';
+
+    if (showFilters) {
+      html += '<aside class="catalogFilters">';
+      if (genres.length) {
+        html += '<div class="filterGroup"><h3>Género</h3><div class="filterChips">' +
+                '<button class="chip' + (!state.catalogGenre ? ' active' : '') +
+                '" data-genre="" tabindex="0">Todos</button>';
+        for (var gi = 0; gi < genres.length; gi++) {
+          html += '<button class="chip' + (state.catalogGenre === genres[gi] ? ' active' : '') +
+                  '" data-genre="' + Utils.esc(genres[gi]) + '" tabindex="0">' +
+                  Utils.esc(genres[gi]) + '</button>';
+        }
+        html += '</div></div>';
+      }
+      if (years.length) {
+        html += '<div class="filterGroup"><h3>Año</h3><div class="filterChips filterYears">' +
+                '<button class="chip' + (!state.catalogYear ? ' active' : '') +
+                '" data-year="" tabindex="0">Todos</button>';
+        for (var yi = 0; yi < years.length; yi++) {
+          html += '<button class="chip' + (state.catalogYear === years[yi] ? ' active' : '') +
+                  '" data-year="' + Utils.esc(years[yi]) + '" tabindex="0">' +
+                  Utils.esc(years[yi]) + '</button>';
+        }
+        html += '</div></div>';
+      }
+      html += '</aside>';
+    }
+
+    html += '<div class="posterGrid" id="posterGrid">';
+    if (!items.length) {
+      html += '<div class="catalogEmpty">' +
+        (embeds ? 'No hay títulos para este filtro.' : 'No hay canales para mostrar.') +
+        '</div>';
+    }
     for (var i = 0; i < limit; i++) {
-      var it = g.items[i];
-      var live = state.onAir[it.id] || state.onAir[it.tvgId];
+      var it = items[i];
       var focused = (i === state.card) && !state.masFocus;
+      var live = !embeds ? (state.onAir[it.id] || state.onAir[it.tvgId]) : '';
+      var meta = [];
 
-      html += '<div class="card verticalCard' + (focused ? ' focused' : '') +
-                '" data-card="' + i + '" tabindex="0">';
-
-      if (it.poster) {
-        html += '<div class="thumb"><img src="' + Utils.esc(it.poster) + '" alt="" loading="lazy" ' +
-                'onerror="this.parentNode.className=\'thumb blank\';this.remove();"></div>';
-      } else {
-        html += '<div class="thumb blank"></div>';
+      if (embeds) {
+        if (it.year) meta.push(it.year);
+        if (it.description && !/^fuente:/i.test(it.description)) {
+          meta.push(String(it.description).split(' · ')[0]);
+        } else if (isSeries) {
+          meta.push('Serie');
+        }
+      } else if (live) {
+        meta.push(live);
+      } else if (it.group) {
+        meta.push(it.group);
       }
 
-      var badgeHtml = isEmbedsMode()
-        ? '<span class="badge vod">' + (it.kind === 'series' ? 'SERIE' : 'PELÍCULA') + '</span>'
-        : '<span class="badge live">EN VIVO</span>';
+      html += '<div class="card posterCard' + (embeds ? '' : ' liveCard') +
+              (focused ? ' focused' : '') +
+              '" data-card="' + i + '" tabindex="0">' +
+              '<div class="posterFrame">';
 
-      html += badgeHtml +
-              (isFav(it.id) ? '<span class="cardFavStar" title="Favorito">&#9733;</span>' : '') +
-              '<div class="ttl">' + Utils.esc(it.title) + '</div>' +
-              (live ? '<span class="onair">' + Utils.esc(live) + '</span>' : '') +
-              '</div>';
+      if (embeds) {
+        html += (it.poster
+          ? '<img src="' + Utils.esc(it.poster) + '" alt="" loading="lazy">'
+          : '<div class="thumb blank" style="position:absolute;inset:0;border:0;border-radius:0;padding:0;"></div>') +
+          (it.rating ? '<span class="pRate">&#9733; ' + Utils.esc(it.rating) + '</span>' : '') +
+          '<span class="pQual">HD</span>' +
+          '<span class="pKind">' + (isSeries ? 'SERIE' : 'PELÍCULA') + '</span>';
+      } else {
+        html += '<div class="chanBg"></div>' +
+          (it.poster
+            ? '<img class="chanLogo" src="' + Utils.esc(it.poster) + '" alt="" loading="lazy" ' +
+              'onerror="this.remove()">'
+            : '') +
+          '<span class="chanInitials">' + Utils.esc(channelInitials(it.title)) + '</span>' +
+          '<span class="pKind live">EN VIVO</span>' +
+          (isFav(it.id) ? '<span class="cardFavStar" title="Favorito">&#9733;</span>' : '');
+      }
+
+      html += '<div class="pOverlay"><h3>' + Utils.esc(it.title) + '</h3>' +
+        (meta.length ? '<p class="pMeta">' + Utils.esc(meta.join(' · ')) + '</p>' : '') +
+        '</div></div>' +
+        '<div class="pTitle">' + Utils.esc(it.title) + '</div>' +
+        '</div>';
     }
 
     if (hayMas) {
-      html += '<button id="btnMas" class="btnMas' + (state.masFocus ? ' focused' : '') +
-              '" tabindex="0">' +
-              '<span class="btnMasText">' + (isEmbedsMode() ? 'Ver más títulos' : 'Ver más canales') + '</span>' +
-              '<span class="btnMasFlecha" aria-hidden="true">&#9660;</span>' +
-              '<span class="btnMasCount">' + limit + ' de ' + total + '</span>' +
-              '</button>';
+      html += '<button id="btnMas" class="catalogMore' + (state.masFocus ? ' focused' : '') + '" tabindex="0">' +
+        '<span class="btnMasText">' + (embeds ? 'Ver más títulos' : 'Ver más canales') + '</span>' +
+        '<span class="btnMasCount">' + limit + ' de ' + total + '</span>' +
+        '</button>';
     }
 
-    html += '</div></section>';
+    html += '</div></div></div>';
+
+    var keepScroll = el.shelves.scrollTop;
     el.shelves.innerHTML = html;
+    el.shelves.scrollTop = keepScroll;
 
     var cards = el.shelves.querySelectorAll('.card');
     for (var c = 0; c < cards.length; c++) {
@@ -741,8 +870,120 @@
       })(cards[c]);
     }
 
+    var chips = el.shelves.querySelectorAll('.chip');
+    for (var k = 0; k < chips.length; k++) {
+      (function (chip) {
+        chip.addEventListener('click', function () {
+          if (chip.hasAttribute('data-genre')) {
+            state.catalogGenre = chip.getAttribute('data-genre') || '';
+          }
+          if (chip.hasAttribute('data-year')) {
+            state.catalogYear = chip.getAttribute('data-year') || '';
+          }
+          applyCatalogFilter();
+        });
+      })(chips[k]);
+    }
+
     var mas = $('btnMas');
     if (mas) mas.addEventListener('click', function () { verMas(); });
+  }
+
+  function applyCatalogFilter() {
+    var all = state.catalogAll || [];
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      var it = all[i];
+      if (state.catalogGenre) {
+        var parts = String(it.description || '').split(' · ');
+        if (parts.indexOf(state.catalogGenre) === -1) continue;
+      }
+      if (state.catalogYear && String(it.year || '') !== state.catalogYear) continue;
+      out.push(it);
+    }
+    if (!state.groups[0]) return;
+    state.groups[0].items = out;
+    state.shown[0] = out.length;
+    state.card = 0;
+    state.masFocus = false;
+    state.zone = 'shelf';
+    render();
+    revealCard();
+  }
+
+  /** Columnas visibles de la cuadrícula (coincide con las media queries). */
+  function gridColumns() {
+    var w = window.innerWidth || document.documentElement.clientWidth || 1200;
+    if (w > 1240) return 5;
+    if (w > 1040) return 4;
+    if (w > 560) return 3;
+    return 2;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Navegación espacial con el mando (flechas + OK).
+   * Sirve para la cuadrícula, la ficha y el selector de episodios.
+   * ---------------------------------------------------------------- */
+  function spatialNodes(container) {
+    if (!container) return [];
+    var all = container.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      var n = all[i];
+      if (n.disabled) continue;
+      if (n.getAttribute('aria-hidden') === 'true') continue;
+      if (n.offsetWidth === 0 && n.offsetHeight === 0) continue;
+      out.push(n);
+    }
+    return out;
+  }
+
+  function focusNode(container, node) {
+    var cards = container.querySelectorAll('.posterCard');
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].className = cards[i].className.replace(/\s*focused\b/, '');
+    }
+    if (node.classList && node.classList.contains('posterCard')) {
+      node.className += ' focused';
+      state.card = parseInt(node.getAttribute('data-card'), 10) || 0;
+    }
+    try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+    if (node.scrollIntoView) {
+      try { node.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+    }
+  }
+
+  function spatialMove(container, dx, dy) {
+    var nodes = spatialNodes(container);
+    if (!nodes.length) return false;
+
+    var cur = document.activeElement;
+    if (!cur || nodes.indexOf(cur) === -1) {
+      cur = container.querySelector('.posterCard.focused') || null;
+    }
+    if (!cur) { focusNode(container, nodes[0]); return true; }
+
+    var cr = cur.getBoundingClientRect();
+    var cx = cr.left + cr.width / 2, cy = cr.top + cr.height / 2;
+    var best = null, bestScore = 1e9;
+
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n === cur) continue;
+      var r = n.getBoundingClientRect();
+      var x = r.left + r.width / 2, y = r.top + r.height / 2;
+      var ddx = x - cx, ddy = y - cy;
+      if (dx && (dx > 0 ? ddx < 2 : ddx > -2)) continue;
+      if (dy && (dy > 0 ? ddy < 2 : ddy > -2)) continue;
+      var primary = dx ? Math.abs(ddx) : Math.abs(ddy);
+      var perp = dx ? Math.abs(ddy) : Math.abs(ddx);
+      var score = primary + perp * 2.4;
+      if (score < bestScore) { bestScore = score; best = n; }
+    }
+
+    if (!best) return false;
+    focusNode(container, best);
+    return true;
   }
 
   /** Pinta el siguiente tramo y deja el foco en el primer canal nuevo. */
@@ -750,12 +991,14 @@
     var g = state.groups[0];
     if (!g) return;
     var total = g.items.length;
-    var shown = state.shown[0] || CHUNK;
+    var embeds = isEmbedsMode();
+    var step = embeds ? total : 48;
+    var shown = state.shown[0] || (embeds ? total : 48);
     if (shown >= total) return;
 
     state.card = shown;
     state.masFocus = false;
-    state.shown[0] = shown + CHUNK;
+    state.shown[0] = Math.min(total, shown + step);
     renderShelves();
     paintFocus();
     revealCard();
@@ -1192,13 +1435,27 @@
    * Reproduccion
    * ---------------------------------------------------------------- */
   function playItem(item) {
-    // Series: mostrar selector de temporada/episodio (estilo GoPelis)
-    // en lugar de reproducir directamente.
-    if (item && (item.kind === 'series' || item.kind === 'tv') && state.adapter && typeof state.adapter._tmdb === 'function') {
-      showSeriesOverlay(item);
+    // Películas y series: ficha estilo GoPelis antes de reproducir.
+    if (isEmbedsMode()) {
+      openDetail(item);
       return;
     }
 
+    // Series: mostrar selector de temporada/episodio (estilo GoPelis)
+    // en lugar de reproducir directamente.
+    if (item && (item.kind === 'series' || item.kind === 'tv') && state.adapter && typeof state.adapter._tmdb === 'function') {
+      openDetail(item);
+      return;
+    }
+
+    startPlayback(item);
+  }
+
+  /** Reproduce un título (película o canal) en el reproductor. */
+  function startPlayback(item) {
+    state.seriesItem = null;
+    state.seriesSeason = 1;
+    state.seriesEpisode = 1;
     el.title.textContent = item.title || '';
     el.quality.innerHTML = '';
     state.playing = item;
@@ -1284,6 +1541,7 @@
       state.stopped = false;
       var aviso = $('playerStopped');
       if (aviso) aviso.style.display = 'none';
+      if (isEmbedsMode() && seriesOverlayState.item) { showScreen('detail'); return; }
       showScreen('catalog');
       return;
     }
@@ -1291,6 +1549,7 @@
     el.video.pause();
     el.video.removeAttribute('src');
     try { el.video.load(); } catch (e) { /* navegadores viejos */ }
+    if (isEmbedsMode() && seriesOverlayState.item) { showScreen('detail'); return; }
     showScreen('catalog');
   }
 
@@ -1302,11 +1561,26 @@
     // block, Safari y WebKit de Android lo comentan al cambiar de pantalla
     // y al volver el contenido aparece en blanco.
     el.guideUI.style.display   = (name === 'guide')   ? 'block' : 'none';
+    var detailUI = $('detailScreen');
+    if (detailUI) detailUI.style.display = (name === 'detail') ? 'block' : 'none';
     el.playerUI.style.display  = (name === 'player')  ? 'block' : 'none';
+
+    // En Películas/Series el reproductor deja de ser pantalla completa:
+    // el vídeo va arriba y debajo el selector de capítulos (GoPelis).
+    var vod = (name === 'player') && isEmbedsMode();
+    el.playerUI.className = vod ? 'vod' : '';
+    var pePanel = $('playerEpisodePanel');
+    var isSeriesPlay = !!(state.seriesItem && (state.seriesItem.kind === 'series' || state.seriesItem.kind === 'tv'));
+    if (pePanel) pePanel.style.display = (vod && isSeriesPlay) ? 'block' : 'none';
+    var btnEp = $('btnEpisodes');
+    if (btnEp) btnEp.style.display = (vod && isSeriesPlay) ? 'inline-flex' : 'none';
+    if (vod) { try { el.playerUI.scrollTop = 0; } catch (e) {} }
+
     if (name !== 'player') player.stop(true);
     if (name === 'player') {
       showPlayerControls();
       resetPlayerControlsTimer();
+      if (vod && isSeriesPlay) renderPlayerPanel();
     } else {
       if (playerControlsTimer) { clearTimeout(playerControlsTimer); playerControlsTimer = null; }
       showPlayerControls();
@@ -1327,32 +1601,49 @@
 
       if (isKey(e, KEY.OK)) {
         if (state.screen === 'catalog') {
-          if (state.masFocus) {
+          var ae = document.activeElement;
+          if (ae && ae.classList && ae.classList.contains('chip')) {
+            ae.click();
+          } else if (ae && ae.id === 'btnMas') {
             verMas();
           } else {
             var it = state.groups[0] && state.groups[0].items[state.card];
             if (it) playItem(it);
           }
+        } else if (state.screen === 'detail') {
+          var ae2 = document.activeElement;
+          if (ae2 && ae2 !== document.body && typeof ae2.click === 'function') ae2.click();
+          else { var pb = $('btnDetailPlay'); if (pb) pb.click(); }
         } else if (state.screen === 'guide') {
           guide.activate();
         } else {
-          // En el reproductor: si se detuvo antes, OK vuelve a emitir el
-          // mismo canal en vez de solo reanudar un video que ya no existe.
-          if (state.stopped && state.playing) {
+          // Reproductor: OK activa el control enfocado o reproduce/pausa.
+          if (isEmbedsMode()) {
+            var ae3 = document.activeElement;
+            if (ae3 && ae3 !== document.body && typeof ae3.click === 'function') {
+              ae3.click();
+            } else {
+              var pp = el.video.play(); if (pp && pp.catch) pp.catch(function () {});
+            }
+            resetPlayerControlsTimer();
+          } else if (state.stopped && state.playing) {
+            // Si se detuvo antes, OK vuelve a emitir el mismo canal en vez
+            // de solo reanudar un video que ya no existe.
             var aviso = $('playerStopped');
             if (aviso) aviso.style.display = 'none';
             state.stopped = false;
             playItem(state.playing);
           } else {
             var p = el.video.play(); if (p && p.catch) p.catch(function () {});
+            resetPlayerControlsTimer();
           }
-          resetPlayerControlsTimer();
         }
         e.preventDefault(); return;
       }
 
       if (isKey(e, KEY.BACK)) {
         if (state.screen === 'player') { goBackToList(); }
+        else if (state.screen === 'detail') { showScreen('catalog'); }
         else if (state.screen === 'guide') { showScreen('catalog'); }
         else if (el.search === document.activeElement || el.search.value || state.searchOpen) {
           el.search.value = '';
@@ -1368,8 +1659,27 @@
         e.preventDefault(); return;
       }
 
+      if (state.screen === 'detail') {
+        var ddx = isKey(e, KEY.RIGHT) ? 1 : isKey(e, KEY.LEFT) ? -1 : 0;
+        var ddy = isKey(e, KEY.DOWN) ? 1 : isKey(e, KEY.UP) ? -1 : 0;
+        if (ddx || ddy) {
+          if (spatialMove($('detailScreen'), ddx, ddy)) e.preventDefault();
+          return;
+        }
+      }
+
       if (state.screen === 'player') {
         resetPlayerControlsTimer();
+        if (isEmbedsMode()) {
+          // VOD: las flechas recorren controles y capítulos con el mando.
+          var pdx = isKey(e, KEY.RIGHT) ? 1 : isKey(e, KEY.LEFT) ? -1 : 0;
+          var pdy = isKey(e, KEY.DOWN) ? 1 : isKey(e, KEY.UP) ? -1 : 0;
+          if (pdx || pdy) {
+            if (spatialMove(el.playerUI, pdx, pdy)) e.preventDefault();
+            return;
+          }
+          return;
+        }
         if (isKey(e, KEY.RIGHT)) { playNextChannel(); e.preventDefault(); return; }
         if (isKey(e, KEY.LEFT))  { playPrevChannel(); e.preventDefault(); return; }
         if (isKey(e, KEY.UP))    { toggleMute(); e.preventDefault(); return; }
@@ -1396,8 +1706,9 @@
           for (var li = 0; li < g.items.length; li++) {
             if (g.items[li].title.toLowerCase().charAt(0) === letter) {
               state.card = li; state.masFocus = false;
-              if (li >= (state.shown[0] || CHUNK)) {
-                state.shown[0] = li + CHUNK;
+              var step = isEmbedsMode() ? g.items.length : 48;
+              if (li >= (state.shown[0] || step)) {
+                state.shown[0] = Math.max(state.shown[0] || step, li + 1);
                 renderShelves();
               }
               paintFocus(); revealCard();
@@ -1406,9 +1717,12 @@
           }
         }
       }
-      if (move(isKey(e, KEY.LEFT) ? -1 : isKey(e, KEY.RIGHT) ? 1 : 0,
-               isKey(e, KEY.UP) ? -1 : isKey(e, KEY.DOWN) ? 1 : 0)) {
-        e.preventDefault();
+
+      // Navegación espacial en la cuadrícula (también con el mando).
+      var gdx = isKey(e, KEY.LEFT) ? -1 : isKey(e, KEY.RIGHT) ? 1 : 0;
+      var gdy = isKey(e, KEY.UP) ? -1 : isKey(e, KEY.DOWN) ? 1 : 0;
+      if (gdx || gdy) {
+        if (spatialMove(el.shelves, gdx, gdy)) e.preventDefault();
       }
     });
   }
@@ -1511,35 +1825,131 @@
    * ---------------------------------------------------------------- */
   var seriesOverlayState = { item: null, seasons: [], currentSeason: 1, episodes: [] };
 
-  function showSeriesOverlay(item) {
+  function detailGenresList(item) {
+    var out = [];
+    var parts = String(item.description || '').split(' · ');
+    for (var i = 0; i < parts.length; i++) {
+      var g = parts[i];
+      if (!g || /^fuente:/i.test(g)) continue;
+      out.push(g);
+    }
+    return out;
+  }
+
+  function addTechRow(label, value) {
+    var dl = $('detailTech');
+    if (!dl || !value) return;
+    var dt = document.createElement('dt');
+    dt.textContent = label;
+    var dd = document.createElement('dd');
+    dd.textContent = value;
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  }
+
+  function fillDetailTech(item, isSeries, extra) {
+    var dl = $('detailTech');
+    var box = $('detailTechBox');
+    if (!dl || !box) return;
+    dl.innerHTML = '';
+    box.style.display = 'block';
+    addTechRow('Tipo', isSeries ? 'Serie' : 'Película');
+    addTechRow('Año', item.year || (extra && extra.year) || '');
+    addTechRow('Calidad', 'HD');
+    var genres = detailGenresList(item);
+    if (genres.length) addTechRow('Géneros', genres.join(', '));
+    if (isSeries && item.slug) addTechRow('Fuente', 'NasriPlay');
+    if (extra && extra.originalTitle && extra.originalTitle !== item.title) {
+      addTechRow('Título original', extra.originalTitle);
+    }
+    if (extra && extra.seasons) addTechRow('Temporadas', String(extra.seasons));
+    if (extra && extra.episodes) addTechRow('Episodios', String(extra.episodes));
+  }
+
+  function fillDetailHero(item) {
+    var isSeries = (item.kind === 'series' || item.kind === 'tv');
+    var poster = item.poster || '';
+
+    var img = $('detailPoster');
+    if (img) {
+      if (poster) { img.src = poster; img.style.display = 'block'; }
+      else { img.removeAttribute('src'); img.style.display = 'none'; }
+    }
+    var bd = $('detailBackdrop');
+    if (bd) {
+      if (poster) { bd.src = poster; bd.style.display = 'block'; }
+      else { bd.removeAttribute('src'); bd.style.display = 'none'; }
+    }
+
+    if ($('detailTitle')) $('detailTitle').textContent = item.title || (isSeries ? 'Serie' : 'Película');
+    if ($('detailRating')) $('detailRating').textContent = item.rating ? ('★ ' + item.rating) : '';
+    if ($('detailYear')) $('detailYear').textContent = item.year || '';
+    if ($('detailCounts')) {
+      $('detailCounts').textContent = isSeries ? 'Serie' : 'Película';
+    }
+    if ($('detailQuality')) $('detailQuality').textContent = 'HD';
+
+    var genres = detailGenresList(item);
+    var gEl = $('detailGenres');
+    if (gEl) {
+      gEl.innerHTML = '';
+      for (var i = 0; i < genres.length; i++) {
+        var s = document.createElement('span');
+        s.className = 'genreChip';
+        s.textContent = genres[i];
+        gEl.appendChild(s);
+      }
+    }
+
+    // En el catálogo de NasriPlay la descripción de las películas son los
+    // géneros, no una sinopsis: no la mostramos como resumen.
+    var desc = isSeries && item.description && !/^fuente:/i.test(item.description)
+      ? item.description : '';
+    if ($('detailOverview')) {
+      $('detailOverview').textContent = desc || (isSeries ? 'Cargando sinopsis…' : 'Sin sinopsis disponible.');
+    }
+  }
+
+  function openDetail(item) {
+    if (!item) return;
     seriesOverlayState.item = item;
     seriesOverlayState.seasons = [];
     seriesOverlayState.episodes = [];
     seriesOverlayState.currentSeason = 1;
 
-    var overlay = document.getElementById('seriesOverlay');
-    var titleEl = document.getElementById('seriesTitle');
-    if (titleEl) titleEl.textContent = item.title || 'Serie';
-    if (overlay) overlay.style.display = 'flex';
+    var isSeries = (item.kind === 'series' || item.kind === 'tv');
 
-    // Series del catálogo NasriPlay (slug): la API ya trae temporadas.
-    if (item && item.slug) {
-      loadFromNasriplay(item);
-      return;
+    fillDetailHero(item);
+    fillDetailTech(item, isSeries);
+
+    var episodesBox = $('detailEpisodesBox');
+    var castBox = $('detailCastBox');
+    if (episodesBox) episodesBox.style.display = isSeries ? 'block' : 'none';
+    if (castBox) castBox.style.display = 'none';
+    if ($('detailPlayText')) $('detailPlayText').textContent = isSeries ? 'Ver T1 E1' : 'Ver ahora';
+
+    showScreen('detail');
+
+    if (isSeries) {
+      if (item.slug) loadFromNasriplay(item);
+      else loadSeasonsFromTmdb(item);
     }
+  }
 
+  function loadSeasonsFromTmdb(item) {
+    var el2 = $('episodeList');
     var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
     var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
     var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
 
     if (!tmdbKey) {
-      var el2 = document.getElementById('episodeList');
-      if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">No se pudieron obtener las temporadas de esta serie.</div>';
+      if (el2) el2.innerHTML = '<div class="catalogEmpty">No se pudieron obtener las temporadas de esta serie.</div>';
       return;
     }
+    if (el2) el2.innerHTML = '<div class="catalogEmpty">Cargando capítulos…</div>';
 
-    // Obtener detalles de la serie (incluye seasons).
-    var url = base + '/tv/' + encodeURIComponent(item.id) + '?api_key=' + encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
+    var url = base + '/tv/' + encodeURIComponent(item.id) + '?api_key=' +
+              encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
     Utils.fetch(url, null, 15000).then(function (text) {
       var data = JSON.parse(text);
       var seasons = (data && data.seasons) || [];
@@ -1550,45 +1960,81 @@
         }
       }
       if (!norm.length) {
-        for (var j = 0; j < seasons.length; j++) norm.push({ number: seasons[j].season_number, name: seasons[j].name });
+        for (var j = 0; j < seasons.length; j++) {
+          norm.push({ number: seasons[j].season_number, name: seasons[j].name });
+        }
       }
       seriesOverlayState.seasons = norm;
       if (norm.length) seriesOverlayState.currentSeason = norm[0].number;
+      var counts = $('detailCounts');
+      if (counts) counts.textContent = norm.length + (norm.length === 1 ? ' temporada' : ' temporadas');
       renderSeasonTabs();
       loadEpisodes(seriesOverlayState.currentSeason);
     }).catch(function () {
-      var el2 = document.getElementById('episodeList');
-      if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar temporadas.</div>';
+      if (el2) el2.innerHTML = '<div class="catalogEmpty">Error al cargar temporadas.</div>';
     });
   }
 
   // Temporadas/episodios desde NasriPlay (info/:slug).
   function loadFromNasriplay(item) {
-    var el2 = document.getElementById('episodeList');
-    if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Cargando temporadas...</div>';
+    var el2 = $('episodeList');
+    if (el2) el2.innerHTML = '<div class="catalogEmpty">Cargando capítulos…</div>';
 
     fetch('/api/nsrplay?action=info&type=series&slug=' + encodeURIComponent(item.slug))
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var seasons = (d && d.data && d.data.seasons) || [];
+        var data = (d && d.data) || {};
+        var seasons = data.seasons || [];
         var norm = [];
+        var totalEps = 0;
         for (var i = 0; i < seasons.length; i++) {
           var s = seasons[i] || {};
           var eps = [];
           var list = s.episodes || [];
           for (var j = 0; j < list.length; j++) {
-            eps.push({ number: list[j].number, name: list[j].title || ('Episodio ' + list[j].number), still: '' });
+            var rawTitle = String(list[j].title || '');
+            var name = 'Episodio ' + list[j].number;
+            // NasriPlay repite "Serie 1x1" como título: en ese caso usamos
+            // un nombre limpio y dejamos el número como referencia.
+            if (rawTitle && !/\d+\s*x\s*\d+/.test(rawTitle)) name = rawTitle;
+            eps.push({ number: list[j].number, name: name, still: '' });
           }
+          totalEps += eps.length;
           norm.push({ number: s.number, name: s.name || ('Temporada ' + s.number), episodes: eps });
         }
-        seriesOverlayState.seasons = norm;
         if (!norm.length) throw new Error('sin temporadas');
+        seriesOverlayState.seasons = norm;
         seriesOverlayState.currentSeason = norm[0].number;
+
+        // Completa la ficha con los metadatos de la API.
+        if (data.synopsis && $('detailOverview')) {
+          $('detailOverview').textContent = data.synopsis;
+        }
+        if (data.poster && !item.poster) {
+          item.poster = data.poster;
+          var pi = $('detailPoster');
+          if (pi) { pi.src = data.poster; pi.style.display = 'block'; }
+          var bi = $('detailBackdrop');
+          if (bi) { bi.src = data.poster; bi.style.display = 'block'; }
+        }
+        var counts = $('detailCounts');
+        if (counts) {
+          counts.textContent = norm.length + (norm.length === 1 ? ' temporada' : ' temporadas') +
+            ' · ' + totalEps + (totalEps === 1 ? ' episodio' : ' episodios');
+        }
+        fillDetailTech(item, true, {
+          originalTitle: data.originalTitle || '',
+          seasons: norm.length,
+          episodes: totalEps,
+          year: data.year || ''
+        });
+
         renderSeasonTabs();
         selectSeason(seriesOverlayState.currentSeason);
+        renderPlayerPanel();
       })
       .catch(function () {
-        if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">No se pudieron cargar las temporadas.</div>';
+        if (el2) el2.innerHTML = '<div class="catalogEmpty">No se pudieron cargar los capítulos.</div>';
       });
   }
 
@@ -1613,9 +2059,11 @@
       btn.className = 'seasonTab' + (s.number === seriesOverlayState.currentSeason ? ' active' : '');
       btn.textContent = s.name || ('Temporada ' + s.number);
       btn.setAttribute('data-season', s.number);
+      btn.setAttribute('tabindex', '0');
       btn.addEventListener('click', function () {
         var sn = parseInt(this.getAttribute('data-season'), 10);
         seriesOverlayState.currentSeason = sn;
+        seriesOverlayState.currentEpisode = 1;
         renderSeasonTabs();
         loadEpisodes(sn);
       });
@@ -1650,7 +2098,16 @@
         });
       }
       seriesOverlayState.episodes = eps;
+      // Guardar en la temporada para que el selector del reproductor
+      // también pueda mostrarlos.
+      for (var s = 0; s < seriesOverlayState.seasons.length; s++) {
+        if (seriesOverlayState.seasons[s].number === seasonNum) {
+          seriesOverlayState.seasons[s].episodes = eps;
+          break;
+        }
+      }
       renderEpisodes(eps, seasonNum);
+      renderPlayerPanel();
     }).catch(function () {
       if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar episodios.</div>';
     });
@@ -1668,11 +2125,12 @@
       var ep = episodes[i];
       var card = document.createElement('div');
       card.className = 'episodeCard';
+      card.setAttribute('tabindex', '0');
       var still = ep.still || '';
       var imgHtml = still ? '<img class="epStill" src="' + Utils.esc(still) + '" alt="" loading="lazy">' : '';
       card.innerHTML = imgHtml +
-        '<div class="epNum">E' + ep.number + '</div>' +
-        '<div class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.number)) + '</div>';
+        '<span class="epNum">E' + Epg.pad2(ep.number) + '</span>' +
+        '<span class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.number)) + '</span>';
       (function (epNum) {
         card.addEventListener('click', function () {
           playSeriesEpisode(seriesOverlayState.item, seasonNum, epNum);
@@ -1683,9 +2141,10 @@
   }
 
   function playSeriesEpisode(item, season, episode) {
-    // Cierra el overlay y reproduce con season/episode.
-    var overlay = document.getElementById('seriesOverlay');
-    if (overlay) overlay.style.display = 'none';
+    state.seriesItem = item;
+    state.seriesSeason = season;
+    state.seriesEpisode = episode;
+    state.panelSeason = season;
 
     var epItem = {
       id: item.id,
@@ -1709,6 +2168,7 @@
     var aviso = $('playerStopped');
     if (aviso) aviso.style.display = 'none';
     showScreen('player');
+    renderPlayerPanel();
 
     state.adapter.resolve(epItem).then(function (streams) {
       if (!streams || !streams.length) {
@@ -1721,12 +2181,143 @@
     });
   }
 
-  // Cerrar overlay
+  /* ---------------------------------------------------------------- *
+   * Selector de capítulos debajo del reproductor (GoPelis).
+   * ---------------------------------------------------------------- */
+  function renderPlayerPanel() {
+    var item = state.seriesItem;
+    var panel = $('playerEpisodePanel');
+    if (!panel || !item) { if (panel) panel.style.display = 'none'; return; }
+
+    var seasons = seriesOverlayState.seasons || [];
+    if (!seasons.length) { panel.style.display = 'none'; return; }
+
+    if ($('peSeriesTitle')) $('peSeriesTitle').textContent = item.title || 'Serie';
+    if ($('peNowLabel')) {
+      $('peNowLabel').textContent = 'Temporada ' + state.seriesSeason + ' · Episodio ' + state.seriesEpisode;
+    }
+
+    var currentSeason = state.panelSeason || state.seriesSeason || seasons[0].number;
+    state.panelSeason = currentSeason;
+
+    var tabs = $('playerSeasonTabs');
+    if (tabs) {
+      tabs.innerHTML = '';
+      for (var i = 0; i < seasons.length; i++) {
+        (function (s) {
+          var b = document.createElement('button');
+          b.className = 'seasonTab' + (s.number === currentSeason ? ' active' : '');
+          b.textContent = s.name || ('Temporada ' + s.number);
+          b.setAttribute('tabindex', '0');
+          b.addEventListener('click', function () {
+            state.panelSeason = s.number;
+            renderPlayerPanel();
+          });
+          tabs.appendChild(b);
+        })(seasons[i]);
+      }
+    }
+
+    var seasonObj = null;
+    for (var k = 0; k < seasons.length; k++) {
+      if (seasons[k].number === currentSeason) { seasonObj = seasons[k]; break; }
+    }
+    var eps = (seasonObj && seasonObj.episodes) || [];
+
+    if ($('peSeasonTitle')) {
+      $('peSeasonTitle').textContent = 'Episodios de la temporada ' + currentSeason;
+    }
+
+    var list = $('playerEpisodeList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!eps.length) {
+      list.innerHTML = '<div class="catalogEmpty">Sin episodios disponibles.</div>';
+      return;
+    }
+    for (var e = 0; e < eps.length; e++) {
+      (function (ep) {
+        var row = document.createElement('div');
+        row.className = 'peItem' +
+          (currentSeason === state.seriesSeason && ep.number === state.seriesEpisode ? ' active' : '');
+        row.setAttribute('tabindex', '0');
+        row.innerHTML = '<span class="peNum">' + Epg.pad2(ep.number) + '</span>' +
+          '<span class="peName">' + Utils.esc(ep.name) + '</span>' +
+          '<span class="pePlay">&#9654;</span>';
+        row.addEventListener('click', function () {
+          playSeriesEpisode(item, currentSeason, ep.number);
+        });
+        list.appendChild(row);
+      })(eps[e]);
+    }
+  }
+
+  /** Anterior/siguiente capítulo (cruza de temporada si hace falta). */
+  function stepEpisode(dir) {
+    var item = state.seriesItem;
+    var seasons = seriesOverlayState.seasons || [];
+    if (!item || !seasons.length) return;
+
+    var si = -1, ei = 0;
+    for (var i = 0; i < seasons.length; i++) {
+      if (seasons[i].number === state.seriesSeason) {
+        si = i;
+        var eps = seasons[i].episodes || [];
+        for (var j = 0; j < eps.length; j++) {
+          if (eps[j].number === state.seriesEpisode) { ei = j; break; }
+        }
+        break;
+      }
+    }
+    if (si === -1) return;
+
+    var current = seasons[si].episodes || [];
+    var ni = ei + dir;
+    if (ni >= 0 && ni < current.length) {
+      playSeriesEpisode(item, seasons[si].number, current[ni].number);
+      return;
+    }
+    var ns = si + dir;
+    if (ns >= 0 && ns < seasons.length) {
+      var list = seasons[ns].episodes || [];
+      if (list.length) {
+        playSeriesEpisode(item, seasons[ns].number, list[dir > 0 ? 0 : list.length - 1].number);
+      }
+    }
+  }
+
+  // Botones de la ficha y del reproductor VOD.
   document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('btnCloseSeries');
-    var overlay = document.getElementById('seriesOverlay');
-    if (btn) btn.addEventListener('click', function () { if (overlay) overlay.style.display = 'none'; });
-    if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.style.display = 'none'; });
+    var back = $('btnDetailBack');
+    if (back) back.addEventListener('click', function () { showScreen('catalog'); });
+
+    var play = $('btnDetailPlay');
+    if (play) play.addEventListener('click', function () {
+      var it = seriesOverlayState.item;
+      if (!it) return;
+      if (it.kind === 'series' || it.kind === 'tv') {
+        var seasons = seriesOverlayState.seasons || [];
+        if (!seasons.length) { toast('Cargando capítulos…'); return; }
+        var eps = seasons[0].episodes || [];
+        if (!eps.length) { toast('Sin episodios disponibles'); return; }
+        playSeriesEpisode(it, seasons[0].number, eps[0].number);
+      } else {
+        startPlayback(it);
+      }
+    });
+
+    var prev = $('btnPrevEpisode');
+    if (prev) prev.addEventListener('click', function () { stepEpisode(-1); });
+    var next = $('btnNextEpisode');
+    if (next) next.addEventListener('click', function () { stepEpisode(1); });
+
+    var btnEp = $('btnEpisodes');
+    if (btnEp) btnEp.addEventListener('click', function () {
+      var panel = $('playerEpisodePanel');
+      if (!panel) return;
+      try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      catch (e) { panel.scrollIntoView(); }
+    });
   });
 
   var WEEK = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];

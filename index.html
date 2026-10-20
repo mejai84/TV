@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=68">
+<link rel="stylesheet" href="css/app.css?v=70">
 </head>
 <body class="tv">
 
@@ -102,6 +102,7 @@
 
 <!-- ================= REPRODUCTOR ================= -->
 <section id="playerScreen" style="display:none">
+  <div id="playerStage" class="playerStage">
   <video id="video" playsinline webkit-playsinline controls></video>
   <iframe id="embedFrame" style="display:none;width:100%;height:100%;border:0;position:absolute;top:0;left:0;" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; web-share" allowfullscreen referrerpolicy="no-referrer"></iframe>
   <div class="overlay">
@@ -166,6 +167,11 @@
         <span class="pbtnText">Info</span>
       </button>
 
+      <button id="btnEpisodes" class="pbtn pbtn-episodes" aria-label="Capítulos de la serie" title="Elegir capítulo" tabindex="0" style="display:none">
+        <span class="pbtnIcon" aria-hidden="true">&#9776;</span>
+        <span class="pbtnText">Capítulos</span>
+      </button>
+
       <button id="btnCopyUrl" class="pbtn pbtn-copy" aria-label="Copiar URL del stream" title="Copiar URL" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#128203;</span>
         <span class="pbtnText">URL</span>
@@ -181,6 +187,27 @@
       <span>Pulsa OK para volver a reproducir este canal.</span>
     </div>
     <p class="hint">&#9664; &#9654; Calidad &middot; OK Reproducir y pausar &middot; BACK Volver a la lista</p>
+  </div>
+  </div><!-- /playerStage -->
+
+  <!-- Selector de episodios debajo del reproductor (estilo GoPelis) -->
+  <div id="playerEpisodePanel" class="playerEpisodePanel" style="display:none">
+    <div class="peNav">
+      <button id="btnPrevEpisode" class="peNavBtn" tabindex="0">&#8592; Anterior</button>
+      <div class="peNow">
+        <b id="peSeriesTitle"></b>
+        <span id="peNowLabel"></span>
+      </div>
+      <button id="btnNextEpisode" class="peNavBtn" tabindex="0">Siguiente &#8594;</button>
+    </div>
+
+    <div class="peSelector">
+      <h3>Selector de episodios</h3>
+      <p class="peSub">Elige temporada y episodio para cambiar sin salir del reproductor.</p>
+      <div id="playerSeasonTabs" class="seasonTabs"></div>
+      <h4 id="peSeasonTitle" class="peSeasonTitle"></h4>
+      <div id="playerEpisodeList" class="peList"></div>
+    </div>
   </div>
 </section>
 
@@ -202,23 +229,75 @@
 
 <div id="loadingBar" class="loadingBar"></div>
 
-<!-- Overlay de temporadas/episodios para series (estilo GoPelis) -->
-<div id="seriesOverlay" class="seriesOverlay" style="display:none">
-  <div class="seriesBox">
-    <div class="seriesHeader">
-      <h3 id="seriesTitle" class="seriesTitle"></h3>
-      <button id="btnCloseSeries" class="seriesClose" tabindex="0">&times;</button>
+<!-- ================= DETALLE PELÍCULA / SERIE (estilo GoPelis) ================= -->
+<section id="detailScreen" class="detailScreen" style="display:none">
+  <div class="detailHero">
+    <div class="detailHeroBg" aria-hidden="true"><img id="detailBackdrop" alt=""></div>
+    <div class="detailHeroShade" aria-hidden="true"></div>
+    <div class="detailHeroInner">
+      <button id="btnDetailBack" class="detailBack" tabindex="0">&#8592; Volver</button>
+
+      <div class="detailHeroRow">
+        <div class="detailPoster">
+          <img id="detailPoster" alt="">
+          <span id="detailQuality" class="detailQuality">HD</span>
+        </div>
+
+        <div class="detailHead">
+          <h1 id="detailTitle" class="detailTitle"></h1>
+          <div class="detailMeta">
+            <span id="detailRating" class="detailRating"></span>
+            <span id="detailVotes" class="detailVotes"></span>
+            <span id="detailYear" class="detailYear"></span>
+            <span id="detailCounts" class="detailCounts"></span>
+          </div>
+          <div id="detailGenres" class="detailGenres"></div>
+          <div class="detailActions">
+            <button id="btnDetailPlay" class="detailPlay" tabindex="0">
+              <span aria-hidden="true">&#9654;</span> <span id="detailPlayText">Ver ahora</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="seasonTabs" class="seasonTabs"></div>
-    <div id="episodeList" class="episodeList"></div>
   </div>
-</div>
+
+  <div class="detailContent">
+    <div class="detailGrid">
+      <div class="detailMain">
+        <section id="detailSynopsisBox" class="detailCard">
+          <h2>Sinopsis</h2>
+          <p id="detailOverview"></p>
+        </section>
+
+        <section id="detailCastBox" class="detailCard" style="display:none">
+          <h2>Reparto principal</h2>
+          <div id="detailCast" class="detailCast"></div>
+        </section>
+
+        <section id="detailEpisodesBox" class="detailCard" style="display:none">
+          <h2>Capítulos completos</h2>
+          <p class="detailHint">Elige temporada y episodio.</p>
+          <div id="seasonTabs" class="seasonTabs"></div>
+          <div id="episodeList" class="episodeList"></div>
+        </section>
+      </div>
+
+      <aside class="detailSide">
+        <section id="detailTechBox" class="detailCard" style="display:none">
+          <h2>Información técnica</h2>
+          <dl id="detailTech" class="detailTech"></dl>
+        </section>
+      </aside>
+    </div>
+  </div>
+</section>
 
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=68"></script>
-<script src="js/epg.js?v=68"></script>
-<script src="js/player.js?v=68"></script>
-<script src="js/app.js?v=68"></script>
+<script src="js/config.js?v=70"></script>
+<script src="js/epg.js?v=70"></script>
+<script src="js/player.js?v=70"></script>
+<script src="js/app.js?v=70"></script>
 </body>
 </html>
