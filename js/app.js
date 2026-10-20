@@ -531,8 +531,8 @@
     if (hayMas) {
       html += '<button id="btnMas" class="btnMas' + (state.masFocus ? ' focused' : '') +
               '" tabindex="0">' +
-              '<span class="btnMasFlecha" aria-hidden="true">&#9660;</span>' +
               '<span class="btnMasText">Ver más canales</span>' +
+              '<span class="btnMasFlecha" aria-hidden="true">&#9660;</span>' +
               '<span class="btnMasCount">' + limit + ' de ' + total + '</span>' +
               '</button>';
     }
@@ -883,15 +883,15 @@
     return el.shelves.querySelector('.card[data-card="' + state.card + '"]');
   }
 
-  /** Mantiene la ficha enfocada dentro de la vista vertical. */
+  /** Centra la ficha enfocada verticalmente para que no quede en el borde inferior. */
   function revealCard() {
     var node = cardNode();
     if (!node) return;
 
     var nr = node.getBoundingClientRect();
     var cr = el.shelves.getBoundingClientRect();
-    if (nr.top < cr.top) el.shelves.scrollTop += (nr.top - cr.top) - 12;
-    else if (nr.bottom > cr.bottom) el.shelves.scrollTop += (nr.bottom - cr.bottom) + 12;
+    var delta = (nr.top + nr.height / 2) - (cr.top + cr.height / 2);
+    el.shelves.scrollTop += delta;
   }
 
   /* ---------------------------------------------------------------- *
