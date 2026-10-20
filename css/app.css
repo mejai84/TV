@@ -975,6 +975,36 @@ body.font-xl { font-size: 130%; }
   .card.focused .thumb { transform: none; }
 }
 
+/* Navegacion rapida estilo GoPelis: Peliculas / Series / TV en vivo. */
+.quickNav {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow-x: auto;
+}
+.quickNav .qn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(30, 41, 59, 0.6);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.quickNav .qn:hover { background: rgba(59, 130, 246, 0.15); color: #fff; }
+.quickNav .qn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.quickNav .qn:focus { outline: 2px solid #60a5fa; outline-offset: 2px; }
+
+/* En modo embeds (peliculas/series) la barra de busqueda de canales
+   no tiene sentido: se oculta para no confundir. */
+body.embeds-mode .searchPanel { display: none !important; }
+body.embeds-mode .onAir { display: none !important; }
+
 /* Sin animacion si el sistema la pide. */
 @media (prefers-reduced-motion: reduce) {
   .tally .lamp { animation: none; }

@@ -222,9 +222,32 @@
 
     state.adapter = buildAdapter(activeSource());
 
+    // Modo embeds (peliculas/series): oculta la barra de busqueda de canales
+    // y la banda "en directo", que solo tiene sentido para TV en vivo.
+    try {
+      if (activeSource() === 'embeds') document.body.classList.add('embeds-mode');
+    } catch (e) { /* */ }
+
+    // Marca el boton activo de la navegacion rapida.
+    try {
+      var qm = /[?&]src=([a-z]+)/i.exec(window.location.search || '');
+      var qk = /[?&]kind=([a-z]+)/i.exec(window.location.search || '');
+      var srcNow = qm ? qm[1].toLowerCase() : (CONFIG.source || 'iptvorg');
+      var kindNow = qk ? qk[1].toLowerCase() : '';
+      var btns = document.querySelectorAll('.quickNav .qn');
+      for (var qi = 0; qi < btns.length; qi++) {
+        var b = btns[qi];
+        var bs = b.getAttribute('data-src') || '';
+        var bk = b.getAttribute('data-kind') || '';
+        var active = (bs === srcNow) && (bk === kindNow || (bk === '' && !kindNow && bs === 'iptvorg'));
+        if (active) b.classList.add('active');
+      }
+    } catch (e) { /* */ }
+
     bindInput();
     bindRemote();
     bindTabs();
+    bindQuickNav();
     startClock();
 
     // Resultados en vivo: busqueda incremental con debounce de 300ms.
@@ -435,6 +458,21 @@
       state.allItems = items || [];
       state.failed = loadFailed();
       state.items = state.allItems.filter(function (it) { return state.failed.indexOf(it.id) === -1; });
+
+      // Filtro por kind cuando se pide via ?kind=movies|series (navegacion
+      // rapida estilo GoPelis). Solo aplica a la fuente 'embeds'.
+      try {
+        var km = /[?&]kind=([a-z]+)/i.exec(window.location.search || '');
+        if (km) {
+          var k = km[1].toLowerCase();
+          if (k === 'movies' || k === 'movie') {
+            state.items = state.items.filter(function (it) { return it.kind === 'movie' || it.kind === 'vod'; });
+          } else if (k === 'series' || k === 'tv') {
+            state.items = state.items.filter(function (it) { return it.kind === 'series' || it.kind === 'tv'; });
+          }
+        }
+      } catch (e) { /* sin location.search */ }
+
       state.byId = {};
       for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
       buildGroups();
@@ -1416,6 +1454,21 @@
   function bindTabs() {
     el.tabCatalog.addEventListener('click', function () { showScreen('catalog'); });
     el.tabGuide.addEventListener('click', function () { showScreen('guide'); });
+  }
+
+  function bindQuickNav() {
+    var btns = document.querySelectorAll('.quickNav .qn');
+    for (var i = 0; i < btns.length; i++) {
+      (function (btn) {
+        btn.addEventListener('click', function () {
+          var src = btn.getAttribute('data-src') || 'iptvorg';
+          var kind = btn.getAttribute('data-kind') || '';
+          var url = window.location.pathname + '?src=' + encodeURIComponent(src);
+          if (kind) url += '&kind=' + encodeURIComponent(kind);
+          window.location.href = url;
+        });
+      })(btns[i]);
+    }
   }
 
   var WEEK = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
