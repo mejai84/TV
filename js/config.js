@@ -44,11 +44,11 @@ var CONFIG = {
   /**
    * Configuracion de TMDB para la fuente 'embeds' (estilo GoPelis).
    * Obten una API key gratuita en https://www.themoviedb.org/settings/api
-   * (clave v3). Sin clave, la lista cae a un catalogo local de ejemplo.
+   * (clave v3). Sin clave, el catalogo sale de NasriPlay (server-side).
    */
   tmdb: {
     apiKey: '',
-    language: 'es-ES',
+    language: 'es-CO',
     baseUrl: 'https://api.themoviedb.org/3'
   },
 

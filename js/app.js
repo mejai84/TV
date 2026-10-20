@@ -507,7 +507,7 @@
    * una sola lista y el buscador la recorre entera.
    * ---------------------------------------------------------------- */
   function isEmbedsMode() {
-    try { return currentSourceKey() === 'embeds'; } catch (e) { return false; }
+    try { return activeSource() === 'embeds'; } catch (e) { return false; }
   }
 
   function catalogKind() {
