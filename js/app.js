@@ -376,6 +376,13 @@
     var btnCloseHelp = $('btnCloseHelp');
     if (btnCloseHelp) btnCloseHelp.addEventListener('click', function () { closeHelp(); });
 
+    var btnAddTitle = $('btnAddTitle');
+    if (btnAddTitle) btnAddTitle.addEventListener('click', function () { openAddTitle(); });
+    var btnAddTitleSubmit = $('btnAddTitleSubmit');
+    if (btnAddTitleSubmit) btnAddTitleSubmit.addEventListener('click', function () { submitAddTitle(); });
+    var btnAddTitleCancel = $('btnAddTitleCancel');
+    if (btnAddTitleCancel) btnAddTitleCancel.addEventListener('click', function () { closeAddTitle(); });
+
     var btnCloseGuide = $('btnCloseGuide');
     if (btnCloseGuide) btnCloseGuide.addEventListener('click', function () { showScreen('catalog'); });
 
@@ -1512,6 +1519,68 @@
   function closeHelp() {
     var o = $('helpOverlay');
     if (o) o.style.display = 'none';
+  }
+
+  function openAddTitle() {
+    var o = $('addTitleOverlay');
+    if (o) o.style.display = 'flex';
+    var st = $('addTitleStatus');
+    if (st) st.textContent = '';
+    var inp = $('addTitleId');
+    if (inp) { inp.value = ''; try { inp.focus(); } catch (e) {} }
+  }
+
+  function closeAddTitle() {
+    var o = $('addTitleOverlay');
+    if (o) o.style.display = 'none';
+  }
+
+  function submitAddTitle() {
+    var id = Utils.trim(($('addTitleId') && $('addTitleId').value) || '');
+    var type = ($('addTitleType') && $('addTitleType').value) || 'movie';
+    var st = $('addTitleStatus');
+    if (!id) { if (st) st.textContent = 'Ingresa un TMDB ID.'; return; }
+    if (st) st.textContent = 'Buscando…';
+    fetch('/api/add-title?id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type))
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d || !res.d.item) {
+          if (st) st.textContent = (res.d && res.d.error) ? res.d.error : 'Error al agregar.';
+          return;
+        }
+        var item = res.d.item;
+        // Si no estamos en modo VOD, redirigir a la sección correspondiente.
+        if (!isEmbedsMode()) {
+          var k = (item.kind === 'series' || item.kind === 'tv') ? 'series' : 'movie';
+          window.location.href = window.location.pathname + '?src=embeds&kind=' + k;
+          return;
+        }
+        // Agregar a la lista en memoria si no existe.
+        if (!state.items) state.items = [];
+        var exists = false;
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === item.id) { exists = true; break; }
+        }
+        if (!exists) state.items.push(item);
+        if (!state.allItems) state.allItems = state.items.slice();
+        else {
+          var aexists = false;
+          for (var j = 0; j < state.allItems.length; j++) {
+            if (state.allItems[j].id === item.id) { aexists = true; break; }
+          }
+          if (!aexists) state.allItems.push(item);
+        }
+        state.byId[item.id] = item;
+        buildGroups();
+        updateSearchUi();
+        if (st) st.textContent = (res.d.persisted ? 'Agregado y guardado en la BD.' : 'Agregado (no persistido: BD no configurada).');
+        toast('Agregado: ' + item.title);
+        // Cerrar tras un momento.
+        setTimeout(function () { closeAddTitle(); }, 1200);
+      })
+      .catch(function (e) {
+        if (st) st.textContent = 'Error: ' + e.message;
+      });
   }
 
   function voiceSearch() {

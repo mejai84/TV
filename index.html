@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=76">
+<link rel="stylesheet" href="css/app.css?v=77">
 </head>
 <body class="tv">
 
@@ -65,6 +65,7 @@
         <button id="btnTheme" class="icon" aria-label="Cambiar tema" title="Tema claro/oscuro" tabindex="0">&#9681;</button>
         <button id="btnFont" class="icon" aria-label="Tamaño de fuente" title="Tamaño de fuente" tabindex="0">&#128288;</button>
         <button id="btnHelp" class="icon" aria-label="Ayuda y atajos" title="Ayuda" tabindex="0">&#9432;</button>
+        <button id="btnAddTitle" class="icon" aria-label="Agregar título por TMDB ID" title="Agregar por código TMDB" tabindex="0">&#43;</button>
         <button id="tabCatalog" class="icon" aria-label="Catalogo" tabindex="0">&#9635;</button>
         <button id="tabGuide" class="icon" aria-label="Guia de TV" tabindex="0">&#9776;</button>
       </div>
@@ -310,11 +311,30 @@
   </div>
 </section>
 
+<div id="addTitleOverlay" class="helpOverlay" style="display:none">
+  <div class="helpBox">
+    <h3>Agregar título por código TMDB</h3>
+    <p style="color:#b8c8dd;font-size:13px;margin:0 0 12px;">Ingresa el ID de TMDB (lo sacas de themoviedb.org) y el tipo.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input id="addTitleId" type="text" placeholder="TMDB ID (ej. 94997)" style="flex:1;min-width:120px;padding:8px 10px;border-radius:4px;border:1px solid #1e3050;background:#060b14;color:#eaf2ff;font-size:14px;">
+      <select id="addTitleType" style="padding:8px 10px;border-radius:4px;border:1px solid #1e3050;background:#060b14;color:#eaf2ff;font-size:14px;">
+        <option value="movie">Película</option>
+        <option value="tv">Serie</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button id="btnAddTitleSubmit" tabindex="0">Agregar</button>
+      <button id="btnAddTitleCancel" tabindex="0">Cancelar</button>
+    </div>
+    <p id="addTitleStatus" style="margin:10px 0 0;font-size:12px;color:#8ba0bd;"></p>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=76"></script>
-<script src="js/epg.js?v=76"></script>
-<script src="js/player.js?v=76"></script>
-<script src="js/app.js?v=76"></script>
+<script src="js/config.js?v=77"></script>
+<script src="js/epg.js?v=77"></script>
+<script src="js/player.js?v=77"></script>
+<script src="js/app.js?v=77"></script>
 </body>
 </html>
