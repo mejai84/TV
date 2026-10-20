@@ -955,12 +955,20 @@ EmbedAdapter.prototype.resolve = function (item) {
   var season = (item && item.season) || '';
   var episode = (item && item.episode) || '';
 
+  var providers = self.providers.slice();
+  // Los títulos añadidos manualmente (o ya resueltos por NasriPlay) intentan
+  // el flujo nasriplay (playUrl sin anuncios) aunque no se haya activado
+  // ?nsr=on globalmente.
+  if ((item.source === 'manual' || item.resolved) && providers.indexOf('nasriplay') === -1) {
+    providers.push('nasriplay');
+  }
+
   var priority = [];   // nsrplay/playUrl: reproduccion directa sin anuncios
   var others = [];     // iframes publicos de respaldo
   var tasks = [];
 
-  for (var i = 0; i < self.providers.length; i++) {
-    var provider = self.providers[i];
+  for (var i = 0; i < providers.length; i++) {
+    var provider = providers[i];
 
     if (provider === 'nasriplay') {
       // Modo avanzado (2 pasos): sources -> resolve del token -> playUrl.

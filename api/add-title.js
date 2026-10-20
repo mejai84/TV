@@ -12,6 +12,7 @@
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_LANG = 'es-ES';
+const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
 import { configured as dbConfigured, upsert as dbUpsert } from '../lib/supabase.js';
 
@@ -71,8 +72,29 @@ export default async function handler(req, res) {
       rating: d.vote_average == null ? '' : String(Math.round(d.vote_average * 10) / 10),
       description: genres,
       overview: d.overview || '',
-      source: 'manual'
+      source: 'manual',
+      resolved: false
     };
+
+    // Busqueda secundaria: ¿está en el índice de NasriPlay?
+    // (caché compartida de resoluciones). Si está, el flujo nasriplay
+    // (playUrl sin anuncios) tiene posibilidades de funcionar.
+    try {
+      var nsrKey = process.env.NSRPLAY_API_KEY || '';
+      var nr = await fetch(NSRPLAY_BASE + '/content/resolved?type=' + (isTv ? 'tv' : 'movie') + '&days=90&limit=50&page=1', {
+        headers: nsrKey ? { 'X-API-Key': nsrKey } : {}
+      });
+      if (nr.ok) {
+        var nd = await nr.json();
+        var list = (nd && nd.data) || [];
+        for (var i = 0; i < list.length; i++) {
+          if (String(list[i].tmdbId || list[i].id) === String(d.id)) {
+            item.resolved = true;
+            break;
+          }
+        }
+      }
+    } catch (e) { /* la búsqueda secundaria no es crítica */ }
 
     var persisted = false;
     if (dbConfigured()) {

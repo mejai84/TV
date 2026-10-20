@@ -1573,7 +1573,8 @@
         state.byId[item.id] = item;
         buildGroups();
         updateSearchUi();
-        if (st) st.textContent = (res.d.persisted ? 'Agregado y guardado en la BD.' : 'Agregado (no persistido: BD no configurada).');
+        if (st) st.textContent = (res.d.persisted ? 'Agregado y guardado en la BD.' : 'Agregado (no persistido: BD no configurada).') +
+          (item.resolved ? ' Encontrado en NasriPlay (sin anuncios posible).' : ' No está en NasriPlay (con anuncios).');
         toast('Agregado: ' + item.title);
         // Cerrar tras un momento.
         setTimeout(function () { closeAddTitle(); }, 1200);
