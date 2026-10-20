@@ -441,8 +441,20 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   .card.verticalCard .ttl { font-size: 16px; }
 }
 
-/* ---------------- Guia ---------------- */
-.epg { position: absolute; top: 62px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+.guideHeader {
+  position: absolute; top: 0; left: 0; right: 0; height: 62px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  background: #0c1626; border-bottom: 1px solid #1e3050; z-index: 5;
+}
+.guideTitle { font-size: 18px; font-weight: 700; color: #eaf2ff; }
+.guideCloseBtn {
+  width: 36px; height: 36px;
+  background: #142338; border: 1px solid #1e3050; border-radius: 4px;
+  color: #8ba0bd; font-size: 22px; line-height: 1; cursor: pointer;
+}
+.guideCloseBtn:hover { color: #ff4d5e; border-color: #ff4d5e; }
+.guideCloseBtn:focus { outline: 2px solid #5db4ff; color: #fff; }
 .epg-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 26px 12px; }
 .epg-nav { padding: 8px 16px; font-size: 14px; color: #8ba0bd; background: #0c1626; border: 1px solid #1e3050; border-radius: 3px; cursor: pointer; }
 .epg-nav:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }

@@ -298,6 +298,9 @@
     var btnCloseHelp = $('btnCloseHelp');
     if (btnCloseHelp) btnCloseHelp.addEventListener('click', function () { closeHelp(); });
 
+    var btnCloseGuide = $('btnCloseGuide');
+    if (btnCloseGuide) btnCloseGuide.addEventListener('click', function () { showScreen('catalog'); });
+
     var btnVoice = $('btnVoiceSearch');
     if (btnVoice) btnVoice.addEventListener('click', function () { voiceSearch(); });
 
