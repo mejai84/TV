@@ -42,6 +42,26 @@ var CONFIG = {
   source: 'iptvorg',
 
   /**
+   * Configuracion de TMDB para la fuente 'embeds' (estilo GoPelis).
+   * Obten una API key gratuita en https://www.themoviedb.org/settings/api
+   * (clave v3). Sin clave, la lista cae a un catalogo local de ejemplo.
+   */
+  tmdb: {
+    apiKey: '',
+    language: 'es-ES',
+    baseUrl: 'https://api.themoviedb.org/3'
+  },
+
+  /**
+   * Proveedores de embed activos para la fuente 'embeds'.
+   * Cada uno recibe el id de TMDB y devuelve un iframe reproducible.
+   * El orden es el de preferencia (el primero que cargue gana).
+   */
+  embeds: {
+    providers: ['vidsrc', 'vidlink', 'vimeus', 'nasriplay']
+  },
+
+  /**
    * Listas de iptv-org (https://github.com/iptv-org/iptv).
    *
    * El sitio publica playlists M3U por pais, idioma, categoria y region.
@@ -683,6 +703,131 @@ ProviderAdapter.prototype.epg = function () {
 };
 
 /* ------------------------------------------------------------------ *
+ * EmbedAdapter - agregador de embeds estilo GoPelis.
+ *
+ * No almacena video: para cada pelicula (identificada por su id de TMDB)
+ * devuelve varias URLs de embed (vidsrc, vidlink, vimeus, nasriplay...) en
+ * orden de preferencia. El reproductor prueba la primera y, si falla, pasa
+ * a la siguiente sin intervencion.
+ *
+ * La lista se obtiene de TMDB (popular/trending). Sin API key cae a un
+ * catalogo local minimo para que la UI no quede vacia.
+ * ------------------------------------------------------------------ */
+function EmbedAdapter(opts) {
+  this.tmdbKey = (opts && opts.tmdbKey) || '';
+  this.tmdbBase = (opts && opts.tmdbBase) || 'https://api.themoviedb.org/3';
+  this.tmdbLang = (opts && opts.tmdbLang) || 'es-ES';
+  this.providers = (opts && opts.providers) || ['vidsrc', 'vidlink', 'vimeus', 'nasriplay'];
+}
+
+EmbedAdapter.prototype._tmdb = function (path) {
+  var url = this.tmdbBase + path;
+  if (this.tmdbKey) url += (path.indexOf('?') > -1 ? '&' : '?') + 'api_key=' + encodeURIComponent(this.tmdbKey) + '&language=' + encodeURIComponent(this.tmdbLang);
+  return url;
+};
+
+EmbedAdapter.prototype.list = function () {
+  var self = this;
+  if (!this.tmdbKey) {
+    // Catalogo local minimo para que la UI funcione sin clave.
+    return Promise.resolve([
+      { id: '550', title: 'Fight Club', kind: 'movie', poster: '', year: '1999', description: 'Un oficinista insomne y un fabricante de jabon forman un club de lucha clandestino.' },
+      { id: '27205', title: 'Inception', kind: 'movie', poster: '', year: '2010', description: 'Un ladron que roba secretos corporativos mediante la tecnologia de compartir suenos.' },
+      { id: '155', title: 'The Dark Knight', kind: 'movie', poster: '', year: '2008', description: 'Batman se enfrenta al Joker, un criminal que siembra el caos en Gotham.' },
+      { id: '1396', title: 'Breaking Bad', kind: 'series', poster: '', year: '2008', description: 'Un profesor de quimica diagnosticado con cancer se convierte en fabricante de metanfetamina.' },
+      { id: '1399', title: 'Game of Thrones', kind: 'series', poster: '', year: '2011', description: 'Nueve familias nobles luchan por el control de los Siete Reinos de Westeros.' }
+    ]);
+  }
+  // Peliculas y series en paralelo; se mezclan y se etiquetan con 'kind'.
+  var moviesP = fetch(self._tmdb('/movie/popular?page=1'))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var out = [];
+      var results = (data && data.results) || [];
+      for (var i = 0; i < results.length; i++) {
+        var m = results[i];
+        out.push({
+          id: String(m.id),
+          title: m.title || m.name || 'Sin titulo',
+          kind: 'movie',
+          poster: m.poster_path ? 'https://image.tmdb.org/t/p/w342' + m.poster_path : '',
+          year: (m.release_date || '').slice(0, 4),
+          description: m.overview || ''
+        });
+      }
+      return out;
+    })
+    .catch(function () { return []; });
+
+  var seriesP = fetch(self._tmdb('/tv/popular?page=1'))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var out = [];
+      var results = (data && data.results) || [];
+      for (var i = 0; i < results.length; i++) {
+        var m = results[i];
+        out.push({
+          id: String(m.id),
+          title: m.name || m.title || 'Sin titulo',
+          kind: 'series',
+          poster: m.poster_path ? 'https://image.tmdb.org/t/p/w342' + m.poster_path : '',
+          year: (m.first_air_date || '').slice(0, 4),
+          description: m.overview || ''
+        });
+      }
+      return out;
+    })
+    .catch(function () { return []; });
+
+  return Promise.all([moviesP, seriesP]).then(function (parts) {
+    return parts[0].concat(parts[1]);
+  });
+};
+
+EmbedAdapter.prototype._embedUrl = function (provider, item) {
+  // Cada proveedor tiene su propio formato de URL de embed.
+  // Para series se usa el path /tv/ en vez de /movie/.
+  var id = item && item.id;
+  var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
+  var typePath = isSeries ? 'tv' : 'movie';
+  switch (provider) {
+    case 'vidsrc':
+      return 'https://vidsrc.to/embed/' + typePath + '/' + encodeURIComponent(id);
+    case 'vidlink':
+      return 'https://vidlink.pro/' + typePath + '/' + encodeURIComponent(id);
+    case 'vimeus':
+      return 'https://vimeus.com/embed/' + typePath + '/' + encodeURIComponent(id);
+    case 'nasriplay':
+      return 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
+    case 'peliapi-player':
+      return '/api/stream-player?source=peliapi-player&type=' + typePath + '&id=' + encodeURIComponent(id);
+    default:
+      return null;
+  }
+};
+
+EmbedAdapter.prototype.resolve = function (item) {
+  var self = this;
+  var id = item && item.id;
+  if (!id) return Promise.resolve([]);
+  var out = [];
+  for (var i = 0; i < self.providers.length; i++) {
+    var url = self._embedUrl(self.providers[i], item);
+    if (url) {
+      out.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
+    }
+  }
+  // Las URLs de embed no pasan por el proxy HLS (son iframes, no .m3u8).
+  // Si quieres forzar proxy para alguna, anadela a providers y cambia
+  // _embedUrl para que devuelva '/api/stream?u=' + encodeURIComponent(url).
+  return Promise.resolve(out);
+};
+
+EmbedAdapter.prototype.epg = function () {
+  return EpgSource.load();
+};
+
+/* ------------------------------------------------------------------ *
  * Fabrica
  *
  * Ya no hay listas de prueba: solo iptv-org y, si algun dia se conecta un
@@ -692,7 +837,7 @@ ProviderAdapter.prototype.epg = function () {
 function activeSource() {
   try {
     var m = /[?&]src=([a-z]+)/i.exec(window.location.search || '');
-    if (m && ['iptvorg', 'provider'].indexOf(m[1].toLowerCase()) > -1) {
+    if (m && ['iptvorg', 'provider', 'embeds'].indexOf(m[1].toLowerCase()) > -1) {
       return m[1].toLowerCase();
     }
   } catch (e) { /* file:// o sandbox sin location.search */ }
@@ -756,6 +901,13 @@ function buildAdapter(name) {
         userId: '',
         userToken: '',
         lang: 'pt'
+      });
+    case 'embeds':
+      return new EmbedAdapter({
+        tmdbKey: (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '',
+        tmdbBase: (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3',
+        tmdbLang: (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES',
+        providers: (CONFIG.embeds && CONFIG.embeds.providers) || ['vidsrc', 'vidlink', 'vimeus', 'nasriplay']
       });
   }
 }

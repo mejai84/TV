@@ -31,6 +31,7 @@ var HLS_SOURCES = [
 
 function Player(videoEl, statusEl) {
   this.video = videoEl;
+  this.iframe = document.getElementById('embedFrame');
   this.statusEl = statusEl;
 
   this.streams = [];        // [{ url, quality, headers, expiresAt }]
@@ -40,6 +41,7 @@ function Player(videoEl, statusEl) {
 
   this.hls = null;
   this.hlsLib = null;       // instancia global de hls.js, creada una sola vez
+  this.embedMode = false;    // true cuando el stream es un iframe (embed)
   this.attempt = 0;         // reintentos del stream actual
   this.refreshTimer = null;
   this.levels = [];
@@ -80,6 +82,14 @@ Player.loadHls = function () {
  * @param {Array}  streams lista ordenada de candidatos
  * @param {Function} resolver function(item) -> Promise<Stream[]>
  */
+// Detecta si una URL es un embed (iframe) y no un stream HLS/MP4 directo.
+Player.isEmbedUrl = function (url) {
+  if (!url || typeof url !== 'string') return false;
+  var u = url.toLowerCase().split('?')[0];
+  return !(u.match(/\.(m3u8|m3u|mp4|ts|mpd|mkv|webm|avi|mov)$/) ||
+           u.indexOf('/api/stream?') > -1);
+};
+
 Player.prototype.play = function (item, streams, resolver) {
   this.stop(true);
   this.item = item;
@@ -93,6 +103,8 @@ Player.prototype.play = function (item, streams, resolver) {
     this._fail('No hay ninguna URL disponible para este contenido.');
     return Promise.resolve();
   }
+  // Modo embed: si la primera URL es un iframe, activamos el modo embed.
+  this.embedMode = Player.isEmbedUrl(this.streams[0].url);
   this._attach();
   return this._openCurrent();
 };
@@ -101,6 +113,16 @@ Player.prototype._attach = function () {
   var self = this;
   if (this.hls) { try { this.hls.destroy(); } catch (e) {} this.hls = null; }
   this.video.removeAttribute('src');
+  if (this.iframe) { this.iframe.removeAttribute('src'); this.iframe.style.display = 'none'; }
+
+  if (this.embedMode) {
+    // Modo iframe: ocultamos el video y mostramos el iframe.
+    this.video.style.display = 'none';
+    if (this.iframe) this.iframe.style.display = 'block';
+  } else {
+    this.video.style.display = '';
+    if (this.iframe) this.iframe.style.display = 'none';
+  }
 
   this.video.addEventListener('error', function () {
     // El elemento <video> fallo: normalmente el stream esta caido.
@@ -115,6 +137,17 @@ Player.prototype._openCurrent = function () {
   if (!stream) { this._fail('Se agotaron todos los servidores.'); return Promise.resolve(); }
 
   this._setStatus('Conectando (' + (this.current + 1) + '/' + this.streams.length + ')…');
+  // Modo embed (iframe): no hay HLS que cargar, solo se asigna el src.
+  if (this.embedMode) {
+    if (this.iframe) {
+      this.iframe.src = stream.url;
+      this.iframe.style.display = 'block';
+      this.video.style.display = 'none';
+    }
+    this._setStatus('Reproduciendo (embed)');
+    return Promise.resolve();
+  }
+
   this._armRefresh(stream);
 
   var headers = stream.headers || {};
@@ -293,6 +326,9 @@ Player.prototype._detach = function () {
   this.hlsLib = null;
   this.video.removeAttribute('src');
   try { this.video.load(); } catch (e) {}
+  if (this.iframe) { this.iframe.removeAttribute('src'); this.iframe.style.display = 'none'; }
+  this.video.style.display = '';
+  this.embedMode = false;
 };
 
 Player.prototype.stop = function (silent) {
