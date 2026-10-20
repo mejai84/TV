@@ -2161,7 +2161,7 @@
     var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
 
     if (!tmdbKey) {
-      if (el2) el2.innerHTML = '<div class="catalogEmpty">No se pudieron obtener las temporadas de esta serie.</div>';
+      if (el2) el2.innerHTML = '<div class="catalogEmpty">Temporadas no disponibles sin conexión a TMDB.<br>Se reproducirá T1 E1 al pulsar Ver.</div>';
       return;
     }
     if (el2) el2.innerHTML = '<div class="catalogEmpty">Cargando capítulos…</div>';
@@ -2526,7 +2526,13 @@
       if (!it) return;
       if (it.kind === 'series' || it.kind === 'tv') {
         var seasons = seriesOverlayState.seasons || [];
-        if (!seasons.length) { toast('Cargando capítulos…'); return; }
+        if (!seasons.length) {
+          // Sin TMDB key o sin slug: reproducir T1 E1 directamente.
+          // Los embeds públicos y NasriPlay ya soportan temporada/episodio
+          // en la URL (/tv/{id}/1/1), no hace falta cargar la lista.
+          playSeriesEpisode(it, 1, 1);
+          return;
+        }
         var eps = seasons[0].episodes || [];
         if (!eps.length) { toast('Sin episodios disponibles'); return; }
         playSeriesEpisode(it, seasons[0].number, eps[0].number);
