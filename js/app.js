@@ -2151,46 +2151,91 @@
     if (isSeries) {
       if (item.slug) loadFromNasriplay(item);
       else loadSeasonsFromTmdb(item);
+    } else if (item.tmdbId || (item.id && /^\d+$/.test(item.id))) {
+      loadMovieDetails(item);
     }
+  }
+
+  function loadMovieDetails(item) {
+    var id = item.tmdbId || item.id;
+    if (!id) return;
+    fetch('/api/tmdb?action=details&type=movie&id=' + encodeURIComponent(id))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.overview && $('detailOverview')) {
+          $('detailOverview').textContent = data.overview;
+        }
+        if (data.poster && !item.poster) {
+          item.poster = data.poster;
+          var pi = $('detailPoster');
+          if (pi) { pi.src = data.poster; pi.style.display = 'block'; }
+          var bi = $('detailBackdrop');
+          if (bi) { bi.src = data.backdrop || data.poster; bi.style.display = 'block'; }
+        }
+        if (data.year && !item.year) {
+          item.year = data.year;
+          var yEl = $('detailYear');
+          if (yEl) yEl.textContent = data.year;
+        }
+        if (data.genres) {
+          item.description = data.genres;
+          fillDetailTech(item, false, { year: data.year || item.year });
+        }
+      })
+      .catch(function () {});
   }
 
   function loadSeasonsFromTmdb(item) {
     var el2 = $('episodeList');
-    var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
-    var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
-    var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
-
-    if (!tmdbKey) {
-      if (el2) el2.innerHTML = '<div class="catalogEmpty">Temporadas no disponibles sin conexión a TMDB.<br>Se reproducirá T1 E1 al pulsar Ver.</div>';
+    var id = item.tmdbId || item.id;
+    if (!id) {
+      if (el2) el2.innerHTML = '<div class="catalogEmpty">Sin datos de TMDB para esta serie.</div>';
       return;
     }
     if (el2) el2.innerHTML = '<div class="catalogEmpty">Cargando capítulos…</div>';
 
-    var url = base + '/tv/' + encodeURIComponent(item.id) + '?api_key=' +
-              encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
-    Utils.fetch(url, null, 15000).then(function (text) {
-      var data = JSON.parse(text);
-      var seasons = (data && data.seasons) || [];
-      var norm = [];
-      for (var i = 0; i < seasons.length; i++) {
-        if (seasons[i].season_number > 0) {
-          norm.push({ number: seasons[i].season_number, name: seasons[i].name });
+    fetch('/api/tmdb?action=details&type=tv&id=' + encodeURIComponent(id))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.overview && $('detailOverview')) {
+          $('detailOverview').textContent = data.overview;
         }
-      }
-      if (!norm.length) {
-        for (var j = 0; j < seasons.length; j++) {
-          norm.push({ number: seasons[j].season_number, name: seasons[j].name });
+        if (data.poster && !item.poster) {
+          item.poster = data.poster;
+          var pi = $('detailPoster');
+          if (pi) { pi.src = data.poster; pi.style.display = 'block'; }
+          var bi = $('detailBackdrop');
+          if (bi) { bi.src = data.backdrop || data.poster; bi.style.display = 'block'; }
         }
-      }
-      seriesOverlayState.seasons = norm;
-      if (norm.length) seriesOverlayState.currentSeason = norm[0].number;
-      var counts = $('detailCounts');
-      if (counts) counts.textContent = norm.length + (norm.length === 1 ? ' temporada' : ' temporadas');
-      renderSeasonTabs();
-      loadEpisodes(seriesOverlayState.currentSeason);
-    }).catch(function () {
-      if (el2) el2.innerHTML = '<div class="catalogEmpty">Error al cargar temporadas.</div>';
-    });
+        if (data.genres) {
+          var gEl = $('detailGenres');
+          if (gEl) gEl.textContent = data.genres;
+        }
+        var seasons = data.seasons || [];
+        var norm = [];
+        for (var i = 0; i < seasons.length; i++) {
+          if (seasons[i].number > 0) {
+            norm.push({ number: seasons[i].number, name: seasons[i].name });
+          }
+        }
+        if (!norm.length) {
+          for (var j = 0; j < seasons.length; j++) {
+            norm.push({ number: seasons[j].number, name: seasons[j].name });
+          }
+        }
+        seriesOverlayState.seasons = norm;
+        if (norm.length) seriesOverlayState.currentSeason = norm[0].number;
+        var counts = $('detailCounts');
+        if (counts) {
+          counts.textContent = norm.length + (norm.length === 1 ? ' temporada' : ' temporadas');
+        }
+        renderSeasonTabs();
+        if (norm.length) loadEpisodes(seriesOverlayState.currentSeason);
+        else if (el2) el2.innerHTML = '<div class="catalogEmpty">Sin temporadas disponibles.</div>';
+      })
+      .catch(function () {
+        if (el2) el2.innerHTML = '<div class="catalogEmpty">Error al cargar temporadas.</div>';
+      });
   }
 
   // Temporadas/episodios desde NasriPlay (info/:slug).
@@ -2300,8 +2345,12 @@
   }
 
   function loadEpisodes(seasonNum) {
-    // Si la serie vino de NasriPlay, los episodios ya están en memoria.
-    if (seriesOverlayState.seasons.length && seriesOverlayState.seasons[0].episodes) {
+    // Si los episodios de esta temporada ya están en memoria, usarlos.
+    var seasonObj = null;
+    for (var si = 0; si < seriesOverlayState.seasons.length; si++) {
+      if (seriesOverlayState.seasons[si].number === seasonNum) { seasonObj = seriesOverlayState.seasons[si]; break; }
+    }
+    if (seasonObj && seasonObj.episodes && seasonObj.episodes.length) {
       selectSeason(seasonNum);
       return;
     }
@@ -2309,36 +2358,36 @@
     var el2 = document.getElementById('episodeList');
     if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Cargando episodios...</div>';
 
-    var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
-    var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
-    var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
+    var id = (seriesOverlayState.item && (seriesOverlayState.item.tmdbId || seriesOverlayState.item.id)) || '';
+    if (!id) {
+      if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Sin datos de TMDB.</div>';
+      return;
+    }
 
-    var url = base + '/tv/' + encodeURIComponent(seriesOverlayState.item.id) + '/season/' + seasonNum + '?api_key=' + encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
-    Utils.fetch(url, null, 15000).then(function (text) {
-      var data = JSON.parse(text);
-      var raw = (data && data.episodes) || [];
-      var eps = [];
-      for (var i = 0; i < raw.length; i++) {
-        eps.push({
-          number: raw[i].episode_number,
-          name: raw[i].name || ('Episodio ' + raw[i].episode_number),
-          still: raw[i].still_path ? ('https://image.tmdb.org/t/p/w300' + raw[i].still_path) : ''
-        });
-      }
-      seriesOverlayState.episodes = eps;
-      // Guardar en la temporada para que el selector del reproductor
-      // también pueda mostrarlos.
-      for (var s = 0; s < seriesOverlayState.seasons.length; s++) {
-        if (seriesOverlayState.seasons[s].number === seasonNum) {
-          seriesOverlayState.seasons[s].episodes = eps;
-          break;
+    fetch('/api/tmdb?action=season&id=' + encodeURIComponent(id) + '&season=' + encodeURIComponent(seasonNum))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var raw = (data && data.episodes) || [];
+        var eps = [];
+        for (var i = 0; i < raw.length; i++) {
+          eps.push({
+            number: raw[i].number,
+            name: raw[i].name || ('Episodio ' + raw[i].number),
+            still: raw[i].still || ''
+          });
         }
-      }
-      renderEpisodes(eps, seasonNum);
-      renderPlayerPanel();
-    }).catch(function () {
-      if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar episodios.</div>';
-    });
+        seriesOverlayState.episodes = eps;
+        for (var s = 0; s < seriesOverlayState.seasons.length; s++) {
+          if (seriesOverlayState.seasons[s].number === seasonNum) {
+            seriesOverlayState.seasons[s].episodes = eps;
+            break;
+          }
+        }
+        renderEpisodes(eps, seasonNum);
+        renderPlayerPanel();
+      }).catch(function () {
+        if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar episodios.</div>';
+      });
   }
 
   function renderEpisodes(episodes, seasonNum) {
