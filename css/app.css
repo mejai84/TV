@@ -323,6 +323,12 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   background: #fff; border-radius: 50%;
   box-shadow: 0 0 4px rgba(255,255,255,0.8);
 }
+/* Distintivo de catalogo (peliculas/series): sin luz de emision. */
+.badge.vod {
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+}
+.badge.vod::before { display: none; }
 
 .ttl {
   margin-top: 9px;

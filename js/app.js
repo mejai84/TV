@@ -506,6 +506,18 @@
    * Lista unica. Sin categorias, sin carrusel: todo el catalogo vive en
    * una sola lista y el buscador la recorre entera.
    * ---------------------------------------------------------------- */
+  function isEmbedsMode() {
+    try { return currentSourceKey() === 'embeds'; } catch (e) { return false; }
+  }
+
+  function catalogKind() {
+    var m = /[?&]kind=([a-z]+)/i.exec(window.location.search || '');
+    if (!m) return 'movie';
+    var k = m[1].toLowerCase();
+    if (k === 'series' || k === 'tv') return 'series';
+    return 'movie';
+  }
+
   function buildGroups() {
     applyTheme('all');
     state.shown = {};
@@ -519,11 +531,16 @@
       } else {
         hits = buscar('');
       }
-      var name = state.query ? 'Resultados' : 'Todos los canales';
+      var name = state.query ? 'Resultados' : (isEmbedsMode()
+        ? (catalogKind() === 'series' ? 'Series' : 'Películas')
+        : 'Todos los canales');
       state.groups = [{ name: name, theme: 'all', items: hits, artificial: !!state.query, all: true }];
       state.shown = { 0: hits.length };
     } else {
-      state.groups = [{ name: 'Todos los canales', theme: 'all', items: state.items }];
+      var baseName = isEmbedsMode()
+        ? (catalogKind() === 'series' ? 'Series' : 'Películas')
+        : 'Todos los canales';
+      state.groups = [{ name: baseName, theme: 'all', items: state.items }];
       state.shown = { 0: CHUNK };
     }
 
@@ -667,7 +684,9 @@
 
     var html = '<section class="shelf" data-shelf="0">' +
                '<div class="shelfhead"><h2>' + Utils.esc(g.name) + '</h2>' +
-               '<em>' + total + (total === 1 ? ' canal' : ' canales') + '</em>' +
+               '<em>' + total + (isEmbedsMode()
+                 ? (total === 1 ? ' título' : ' títulos')
+                 : (total === 1 ? ' canal' : ' canales')) + '</em>' +
                '</div><div class="row verticalResults" id="row-0">';
 
     for (var i = 0; i < limit; i++) {
@@ -685,7 +704,11 @@
         html += '<div class="thumb blank"></div>';
       }
 
-      html += '<span class="badge live">EN VIVO</span>' +
+      var badgeHtml = isEmbedsMode()
+        ? '<span class="badge vod">' + (it.kind === 'series' ? 'SERIE' : 'PELÍCULA') + '</span>'
+        : '<span class="badge live">EN VIVO</span>';
+
+      html += badgeHtml +
               (isFav(it.id) ? '<span class="cardFavStar" title="Favorito">&#9733;</span>' : '') +
               '<div class="ttl">' + Utils.esc(it.title) + '</div>' +
               (live ? '<span class="onair">' + Utils.esc(live) + '</span>' : '') +
@@ -695,7 +718,7 @@
     if (hayMas) {
       html += '<button id="btnMas" class="btnMas' + (state.masFocus ? ' focused' : '') +
               '" tabindex="0">' +
-              '<span class="btnMasText">Ver más canales</span>' +
+              '<span class="btnMasText">' + (isEmbedsMode() ? 'Ver más títulos' : 'Ver más canales') + '</span>' +
               '<span class="btnMasFlecha" aria-hidden="true">&#9660;</span>' +
               '<span class="btnMasCount">' + limit + ' de ' + total + '</span>' +
               '</button>';
