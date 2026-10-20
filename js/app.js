@@ -362,6 +362,14 @@
         }
       });
     }
+    if (el.playerUI) {
+      el.playerUI.addEventListener('mousemove', function () {
+        if (state.screen === 'player') resetPlayerControlsTimer();
+      });
+      el.playerUI.addEventListener('touchstart', function () {
+        if (state.screen === 'player') resetPlayerControlsTimer();
+      });
+    }
 
     // Cargar favoritos y recientes
     loadFavorites();
