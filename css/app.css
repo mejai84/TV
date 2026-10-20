@@ -494,6 +494,12 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   background: linear-gradient(to top, rgba(4, 9, 18, 0.96) 0%, rgba(4, 9, 18, 0.72) 48%, rgba(4, 9, 18, 0) 100%);
   display: flex;
   flex-direction: column;
+  transition: opacity .35s ease;
+  opacity: 1;
+}
+.overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 .bar {
   display: flex;
@@ -816,6 +822,82 @@ body.tema-other        { background-color: #070a0e; background-image: radial-gra
   border: 1px solid #5db4ff;
   border-radius: 2px; z-index: 60;
 }
+
+/* ===================================================================
+   Nuevos controles: filtros rapidos, voz, ayuda, temas y tamanos.
+   =================================================================== */
+.quickFilters {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 10px;
+}
+.qf {
+  padding: 6px 12px;
+  font-size: 12px; font-weight: 600; color: #8ba0bd;
+  background: transparent;
+  border: 1px solid #1e3050; border-radius: 3px;
+  cursor: pointer;
+  transition: all .14s ease;
+}
+.qf:hover { color: #eaf2ff; border-color: #2f7fd0; }
+.qf.on {
+  color: #060b14; background: #5db4ff; border-color: #9ed0ff; font-weight: 700;
+}
+
+.searchVoiceBtn {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  width: 44px; height: 44px;
+  background: #142338; border: 1px solid #1e3050; border-radius: 3px;
+  color: #8ba0bd; font-size: 18px; line-height: 1;
+  cursor: pointer; transition: all .14s ease;
+}
+.searchVoiceBtn:hover { color: #eaf2ff; border-color: #5db4ff; }
+
+/* Ayuda */
+.helpOverlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(4, 9, 18, 0.85); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.helpBox {
+  max-width: 640px; width: 100%;
+  background: #0c1626; border: 1px solid #1e3050; border-radius: 8px;
+  padding: 24px 28px;
+  color: #eaf2ff;
+}
+.helpBox h3 { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #5db4ff; }
+.helpBox ul { margin: 0; padding: 0 0 0 18px; line-height: 1.9; font-size: 14px; color: #b8c8dd; }
+.helpBox ul b { color: #eaf2ff; }
+.helpBox button {
+  margin-top: 18px; padding: 8px 18px;
+  background: #5db4ff; color: #060b14; border: 0; border-radius: 4px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+
+/* Tema claro */
+body.tema-claro {
+  background-color: #f1f5f9; color: #0f172a;
+}
+body.tema-claro .band { background: #ffffff; border-bottom-color: #cbd5e1; }
+body.tema-claro .onAirList, body.tema-claro .clock { color: #334155; }
+body.tema-claro .icon { color: #475569; border-color: #cbd5e1; }
+
+/* Alto contraste */
+body.alto-contraste { filter: contrast(1.35); }
+
+/* Tamanos de fuente */
+body.font-lg { font-size: 115%; }
+body.font-xl { font-size: 130%; }
+
+/* Indicador de carga */
+.loadingBar {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 300;
+  background: linear-gradient(90deg, #5db4ff, #ff4d5e);
+  transform-origin: left; transform: scaleX(0);
+  transition: transform .2s ease;
+}
+.loadingBar.on { transform: scaleX(1); }
 
 /* ===================================================================
    Escalones de pantalla. El televisor de referencia es 1280x720; por

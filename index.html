@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=59">
+<link rel="stylesheet" href="css/app.css?v=62">
 </head>
 <body class="tv">
 
@@ -37,6 +37,10 @@
       <div class="tools">
         <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar País o Lista" title="Cambiar País o Región" tabindex="0">&#127760;</button>
         <button id="btnOpenSearch" class="icon" aria-label="Buscar canales" title="Buscar" tabindex="0">&#128269;</button>
+        <button id="btnRandom" class="icon" aria-label="Canal aleatorio" title="Canal aleatorio" tabindex="0">&#127922;</button>
+        <button id="btnTheme" class="icon" aria-label="Cambiar tema" title="Tema claro/oscuro" tabindex="0">&#9681;</button>
+        <button id="btnFont" class="icon" aria-label="Tamaño de fuente" title="Tamaño de fuente" tabindex="0">&#128288;</button>
+        <button id="btnHelp" class="icon" aria-label="Ayuda y atajos" title="Ayuda" tabindex="0">&#9432;</button>
         <button id="tabCatalog" class="icon" aria-label="Catalogo" tabindex="0">&#9635;</button>
         <button id="tabGuide" class="icon" aria-label="Guia de TV" tabindex="0">&#9776;</button>
       </div>
@@ -50,8 +54,16 @@
     <div class="searchRow">
       <input id="searchInput" class="search" type="text" placeholder="Buscar canales..."
              autocomplete="off" autocorrect="off" spellcheck="false">
+      <button id="btnVoiceSearch" class="searchVoiceBtn" aria-label="Búsqueda por voz" tabindex="0">&#127908;</button>
       <div id="searchCount" class="searchCount"></div>
       <button id="btnCloseSearch" class="searchCloseBtn" aria-label="Cerrar búsqueda" tabindex="0">&times;</button>
+    </div>
+    <div class="quickFilters">
+      <button class="qf" data-qf="all" tabindex="0">Todos</button>
+      <button class="qf" data-qf="hd" tabindex="0">HD</button>
+      <button class="qf" data-qf="live" tabindex="0">En vivo ahora</button>
+      <button class="qf" data-qf="recent" tabindex="0">Recientes</button>
+      <button id="btnSort" class="qf" tabindex="0">Orden: Nombre</button>
     </div>
   </div>
 
@@ -122,6 +134,26 @@
         <span class="pbtnIcon" aria-hidden="true">&#9974;</span>
         <span class="pbtnText">Completa</span>
       </button>
+
+      <button id="btnAspect" class="pbtn pbtn-aspect" aria-label="Relación de aspecto" title="Relación de aspecto" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9634;</span>
+        <span class="pbtnText">Aspecto</span>
+      </button>
+
+      <button id="btnInfo" class="pbtn pbtn-info" aria-label="Información del canal" title="Información" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#9432;</span>
+        <span class="pbtnText">Info</span>
+      </button>
+
+      <button id="btnCopyUrl" class="pbtn pbtn-copy" aria-label="Copiar URL del stream" title="Copiar URL" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#128203;</span>
+        <span class="pbtnText">URL</span>
+      </button>
+
+      <button id="btnShare" class="pbtn pbtn-share" aria-label="Compartir canal" title="Compartir" tabindex="0">
+        <span class="pbtnIcon" aria-hidden="true">&#128279;</span>
+        <span class="pbtnText">Compartir</span>
+      </button>
     </div>
     <div id="playerStopped" class="stoppedMsg" style="display:none">
       <b>Emision detenida</b>
@@ -131,11 +163,29 @@
   </div>
 </section>
 
+<div id="helpOverlay" class="helpOverlay" style="display:none">
+  <div class="helpBox">
+    <h3>Atajos del mando</h3>
+    <ul>
+      <li><b>OK</b> Reproducir canal / activar botón</li>
+      <li><b>↑ / ↓</b> Subir / bajar un canal</li>
+      <li><b>← / →</b> Retroceder / avanzar una página (4 canales)</li>
+      <li><b>BACK</b> Volver / cerrar búsqueda / limpiar filtro</li>
+      <li><b>En el reproductor:</b> ← canal anterior · → canal siguiente · ↑ silenciar · ↓ recargar</li>
+      <li><b>Menú 🎲</b> Canal aleatorio</li>
+      <li><b>Menú ?</b> Esta ayuda</li>
+    </ul>
+    <button id="btnCloseHelp" tabindex="0">Cerrar</button>
+  </div>
+</div>
+
+<div id="loadingBar" class="loadingBar"></div>
+
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=59"></script>
-<script src="js/epg.js?v=59"></script>
-<script src="js/player.js?v=59"></script>
-<script src="js/app.js?v=59"></script>
+<script src="js/config.js?v=62"></script>
+<script src="js/epg.js?v=62"></script>
+<script src="js/player.js?v=62"></script>
+<script src="js/app.js?v=62"></script>
 </body>
 </html>
