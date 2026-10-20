@@ -1164,6 +1164,13 @@
    * Reproduccion
    * ---------------------------------------------------------------- */
   function playItem(item) {
+    // Series: mostrar selector de temporada/episodio (estilo GoPelis)
+    // en lugar de reproducir directamente.
+    if (item && (item.kind === 'series' || item.kind === 'tv') && state.adapter && typeof state.adapter._tmdb === 'function') {
+      showSeriesOverlay(item);
+      return;
+    }
+
     el.title.textContent = item.title || '';
     el.quality.innerHTML = '';
     state.playing = item;
@@ -1470,6 +1477,165 @@
       })(btns[i]);
     }
   }
+
+  /* ---------------------------------------------------------------- *
+   * Selector de temporadas/episodios para series (estilo GoPelis).
+   * ---------------------------------------------------------------- */
+  var seriesOverlayState = { item: null, seasons: [], currentSeason: 1, episodes: [] };
+
+  function showSeriesOverlay(item) {
+    seriesOverlayState.item = item;
+    seriesOverlayState.seasons = [];
+    seriesOverlayState.episodes = [];
+    seriesOverlayState.currentSeason = 1;
+
+    var overlay = document.getElementById('seriesOverlay');
+    var titleEl = document.getElementById('seriesTitle');
+    if (titleEl) titleEl.textContent = item.title || 'Serie';
+    if (overlay) overlay.style.display = 'flex';
+
+    var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
+    var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
+    var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
+
+    if (!tmdbKey) {
+      // Sin clave: mostrar mensaje.
+      var el2 = document.getElementById('episodeList');
+      if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Configura CONFIG.tmdb.apiKey para ver temporadas y episodios.</div>';
+      return;
+    }
+
+    // Obtener detalles de la serie (incluye seasons).
+    var url = base + '/tv/' + encodeURIComponent(item.id) + '?api_key=' + encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
+    Utils.fetch(url, null, 15000).then(function (text) {
+      var data = JSON.parse(text);
+      var seasons = (data && data.seasons) || [];
+      // Filtrar temporada 0 (especiales) si hay otras.
+      var realSeasons = [];
+      for (var i = 0; i < seasons.length; i++) {
+        if (seasons[i].season_number > 0) realSeasons.push(seasons[i]);
+      }
+      if (!realSeasons.length) realSeasons = seasons;
+      seriesOverlayState.seasons = realSeasons;
+      if (realSeasons.length) seriesOverlayState.currentSeason = realSeasons[0].season_number;
+      renderSeasonTabs();
+      loadEpisodes(seriesOverlayState.currentSeason);
+    }).catch(function () {
+      var el2 = document.getElementById('episodeList');
+      if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar temporadas.</div>';
+    });
+  }
+
+  function renderSeasonTabs() {
+    var tabs = document.getElementById('seasonTabs');
+    if (!tabs) return;
+    tabs.innerHTML = '';
+    for (var i = 0; i < seriesOverlayState.seasons.length; i++) {
+      var s = seriesOverlayState.seasons[i];
+      var btn = document.createElement('button');
+      btn.className = 'seasonTab' + (s.season_number === seriesOverlayState.currentSeason ? ' active' : '');
+      btn.textContent = s.name || ('Temporada ' + s.season_number);
+      btn.setAttribute('data-season', s.season_number);
+      btn.addEventListener('click', function () {
+        var sn = parseInt(this.getAttribute('data-season'), 10);
+        seriesOverlayState.currentSeason = sn;
+        renderSeasonTabs();
+        loadEpisodes(sn);
+      });
+      tabs.appendChild(btn);
+    }
+  }
+
+  function loadEpisodes(seasonNum) {
+    var el2 = document.getElementById('episodeList');
+    if (el2) el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Cargando episodios...</div>';
+
+    var tmdbKey = (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '';
+    var base = (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3';
+    var lang = (CONFIG.tmdb && CONFIG.tmdb.language) || 'es-ES';
+
+    var url = base + '/tv/' + encodeURIComponent(seriesOverlayState.item.id) + '/season/' + seasonNum + '?api_key=' + encodeURIComponent(tmdbKey) + '&language=' + encodeURIComponent(lang);
+    Utils.fetch(url, null, 15000).then(function (text) {
+      var data = JSON.parse(text);
+      var episodes = (data && data.episodes) || [];
+      seriesOverlayState.episodes = episodes;
+      renderEpisodes(episodes, seasonNum);
+    }).catch(function () {
+      if (el2) el2.innerHTML = '<div style="padding:20px;color:#ef4444;text-align:center;">Error al cargar episodios.</div>';
+    });
+  }
+
+  function renderEpisodes(episodes, seasonNum) {
+    var el2 = document.getElementById('episodeList');
+    if (!el2) return;
+    el2.innerHTML = '';
+    if (!episodes.length) {
+      el2.innerHTML = '<div style="padding:20px;color:#94a3b8;text-align:center;">Sin episodios disponibles.</div>';
+      return;
+    }
+    for (var i = 0; i < episodes.length; i++) {
+      var ep = episodes[i];
+      var card = document.createElement('div');
+      card.className = 'episodeCard';
+      var still = ep.still_path ? 'https://image.tmdb.org/t/p/w300' + ep.still_path : '';
+      var imgHtml = still ? '<img class="epStill" src="' + Utils.esc(still) + '" alt="" loading="lazy">' : '';
+      card.innerHTML = imgHtml +
+        '<div class="epNum">E' + ep.episode_number + '</div>' +
+        '<div class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.episode_number)) + '</div>';
+      (function (epNum) {
+        card.addEventListener('click', function () {
+          playSeriesEpisode(seriesOverlayState.item, seasonNum, epNum);
+        });
+      })(ep.episode_number);
+      el2.appendChild(card);
+    }
+  }
+
+  function playSeriesEpisode(item, season, episode) {
+    // Cierra el overlay y reproduce con season/episode.
+    var overlay = document.getElementById('seriesOverlay');
+    if (overlay) overlay.style.display = 'none';
+
+    var epItem = {
+      id: item.id,
+      title: item.title + ' - T' + season + ' E' + episode,
+      kind: 'series',
+      season: season,
+      episode: episode,
+      poster: item.poster,
+      year: item.year,
+      description: item.description
+    };
+
+    el.title.textContent = epItem.title || '';
+    el.quality.innerHTML = '';
+    state.playing = epItem;
+    state.stopped = false;
+    addRecent(epItem);
+    updatePlayerFavBtn();
+    updateMuteUI();
+    var aviso = $('playerStopped');
+    if (aviso) aviso.style.display = 'none';
+    showScreen('player');
+
+    state.adapter.resolve(epItem).then(function (streams) {
+      if (!streams || !streams.length) {
+        toast('Sin URL disponible para "' + epItem.title + '"');
+        return;
+      }
+      return player.play(epItem, streams, function (i) { return state.adapter.resolve(i); });
+    }).catch(function (e) {
+      toast('Error: ' + e.message);
+    });
+  }
+
+  // Cerrar overlay
+  document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btnCloseSeries');
+    var overlay = document.getElementById('seriesOverlay');
+    if (btn) btn.addEventListener('click', function () { if (overlay) overlay.style.display = 'none'; });
+    if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.style.display = 'none'; });
+  });
 
   var WEEK = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
   var MONTH = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];

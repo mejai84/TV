@@ -802,24 +802,36 @@ EmbedAdapter.prototype.list = function () {
 
 EmbedAdapter.prototype._embedUrl = function (provider, item) {
   // Cada proveedor tiene su propio formato de URL de embed.
-  // Para series se usa el path /tv/ en vez de /movie/.
+  // Para series se usa el path /tv/ en vez de /movie/, y si hay
+  // season/episode seleccionados se incluyen en la URL.
   var id = item && item.id;
   var isSeries = item && (item.kind === 'series' || item.kind === 'tv');
   var typePath = isSeries ? 'tv' : 'movie';
+  var season = (item && item.season) || '';
+  var episode = (item && item.episode) || '';
+
+  // Sufijo de temporada/episodio (solo para series).
+  var seSuffix = '';
+  if (isSeries && season && episode) {
+    seSuffix = '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
+  }
+
   switch (provider) {
     case 'vidsrc':
-      return 'https://vidsrc.to/embed/' + typePath + '/' + encodeURIComponent(id);
+      return 'https://vidsrc.to/embed/' + typePath + '/' + encodeURIComponent(id) + seSuffix;
     case 'vidlink':
-      return 'https://vidlink.pro/' + typePath + '/' + encodeURIComponent(id);
+      return 'https://vidlink.pro/' + typePath + '/' + encodeURIComponent(id) + seSuffix;
     case 'vimeus':
-      return 'https://vimeus.com/embed/' + typePath + '/' + encodeURIComponent(id);
+      return 'https://vimeus.com/embed/' + typePath + '/' + encodeURIComponent(id) + seSuffix;
     case 'nasriplay':
     case 'peliapi-player':
       // Estos pasan por nuestro backend para que la API key de nsrplay
       // no quede expuesta en el bundle del cliente.
-      return '/api/stream-player?source=' + encodeURIComponent(provider) +
+      var url = '/api/stream-player?source=' + encodeURIComponent(provider) +
              '&type=' + encodeURIComponent(typePath) +
              '&id=' + encodeURIComponent(id);
+      if (seSuffix) url += '&season=' + encodeURIComponent(season) + '&episode=' + encodeURIComponent(episode);
+      return url;
     default:
       return null;
   }
