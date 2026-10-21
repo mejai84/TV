@@ -766,17 +766,33 @@ EmbedAdapter.prototype._tmdb = function (path) {
 EmbedAdapter.prototype.list = function () {
   var self = this;
   if (!this.tmdbKey) {
-    // Sin TMDB key el catálogo sale de NasriPlay (server-side).
-    // Películas con metadatos TMDB y series con slug reproducible.
-    var moviesP = fetch('/api/catalog?type=movie')
-      .then(function (r) { return r.json(); })
-      .then(function (d) { return (d && d.items) || []; })
-      .catch(function () { return []; });
+    // Sin TMDB key el catálogo sale de NasriPlay (server-side) o de la BD.
+    // Se piden varias páginas para no perder títulos recién añadidos.
+    function fetchPages(type) {
+      var pages = [1, 2, 3];
+      return Promise.all(pages.map(function (pg) {
+        return fetch('/api/catalog?type=' + encodeURIComponent(type) + '&page=' + pg)
+          .then(function (r) { return r.json(); })
+          .then(function (d) { return (d && d.items) || []; })
+          .catch(function () { return []; });
+      })).then(function (parts) {
+        var seen = {};
+        var out = [];
+        for (var i = 0; i < parts.length; i++) {
+          for (var j = 0; j < parts[i].length; j++) {
+            var it = parts[i][j];
+            if (!it || !it.id) continue;
+            if (seen[it.id]) continue;
+            seen[it.id] = 1;
+            out.push(it);
+          }
+        }
+        return out;
+      });
+    }
 
-    var seriesP = fetch('/api/catalog?type=series')
-      .then(function (r) { return r.json(); })
-      .then(function (d) { return (d && d.items) || []; })
-      .catch(function () { return []; });
+    var moviesP = fetchPages('movie');
+    var seriesP = fetchPages('series');
 
     return Promise.all([moviesP, seriesP]).then(function (parts) {
       var all = parts[0].concat(parts[1]);

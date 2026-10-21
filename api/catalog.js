@@ -258,10 +258,12 @@ export default async function handler(req, res) {
   /* 1) Servir desde la BD si hay índice. */
   if (dbConfigured()) {
     try {
+      var offset = (page - 1) * 50;
       var rows = await dbSelect('titles', {
         filters: { kind: 'eq.' + kind },
         order: 'first_seen_at.desc',
-        limit: '50'
+        limit: '50',
+        offset: String(offset)
       });
       if (rows && rows.length) {
         res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=300');
