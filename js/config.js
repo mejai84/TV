@@ -990,11 +990,13 @@ EmbedAdapter.prototype.resolve = function (item) {
       // Modo avanzado (2 pasos): sources -> resolve del token -> playUrl.
       // Se prueba servidor por servidor (maximo 3) para no gastar cuota.
       tasks.push((function () {
+        var gotServers = false;
         var srcUrl = '/api/nsrplay?action=sources&type=' + encodeURIComponent(typePath) + '&id=' + encodeURIComponent(id);
         if (isSeries && season && episode) srcUrl += '&season=' + encodeURIComponent(season) + '&episode=' + encodeURIComponent(episode);
         return fetch(srcUrl).then(function (r) { return r.json(); }).then(function (data) {
           var servers = (data && data.servers) || (data && data.data && data.data.servers) || [];
           if (!servers.length) throw new Error('sin servidores');
+          gotServers = true;
 
           var tried = 0;
           function attempt(idx) {
@@ -1017,7 +1019,12 @@ EmbedAdapter.prototype.resolve = function (item) {
           }
           return attempt(0);
         }).catch(function () {
-          // Respaldo: iframe directo (con anuncios, pero funciona).
+          // Solo usamos el embed de NasriPlay si el titulo existe alli (tuvo
+          // servidores) pero no se pudo resolver el playUrl. Si no existe, su
+          // embed muestra "No pudimos encontrar..." y tapaba a los embeds
+          // publicos, asi que lo omitimos y dejamos que el reproductor use
+          // vidsrc/vidlink/vimeus como respaldo.
+          if (!gotServers) return;
           var fallback = 'https://nsrplay.space/embed/' + typePath + '/' + encodeURIComponent(id);
           if (isSeries && season && episode) fallback += '/' + encodeURIComponent(season) + '/' + encodeURIComponent(episode);
           priority.push({ url: fallback, quality: 'FHD', headers: {}, expiresAt: 0 });

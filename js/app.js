@@ -1969,7 +1969,19 @@
           var pdx = isKey(e, KEY.RIGHT) ? 1 : isKey(e, KEY.LEFT) ? -1 : 0;
           var pdy = isKey(e, KEY.DOWN) ? 1 : isKey(e, KEY.UP) ? -1 : 0;
           if (pdx || pdy) {
-            if (spatialMove(el.playerUI, pdx, pdy)) e.preventDefault();
+            var moved = spatialMove(el.playerUI, pdx, pdy);
+            // Si ya no hay otro control en esa direccion (p.ej. final de la
+            // lista de capitulos), desplazamos la pantalla para poder seguir
+            // viendo el resto sin depender de la barra de scroll.
+            if (!moved && pdy) {
+              var c = el.playerUI;
+              if (c && c.scrollHeight > c.clientHeight) {
+                var stageH = (el.playerStage && el.playerStage.offsetHeight) || 0;
+                var step = Math.max(120, Math.round((c.clientHeight - stageH) * 0.75));
+                c.scrollTop += (pdy > 0 ? step : -step);
+              }
+            }
+            e.preventDefault();
             return;
           }
           return;
