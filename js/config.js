@@ -58,10 +58,10 @@ var CONFIG = {
    * El orden es el de preferencia (el primero que cargue gana).
    */
   embeds: {
-    // Reproducción directa con embeds públicos: no consume la cuota de
-    // NasriPlay. Para volver a usar playUrl sin anuncios, abre la app con
-    // ?nsr=on (se añade 'nasriplay' a la lista en buildAdapter).
-    providers: ['vidsrc', 'vidlink', 'vimeus']
+    // Reproducción con audio latino por defecto: NasriPlay (servidores Latino)
+    // se prueba primero y, si falla o no hay cuota, se cae a los embeds
+    // públicos (vidsrc, vidlink, vimeus) como respaldo.
+    providers: ['nasriplay', 'vidsrc', 'vidlink', 'vimeus']
   },
 
   /**
@@ -1118,12 +1118,15 @@ function buildAdapter(name) {
         lang: 'pt'
       });
     case 'embeds': {
-      var useNsr = false;
+      // NasriPlay (audio latino) activo por defecto. Se puede desactivar con
+      // ?nsr=off si se quiere ahorrar cuota de la API.
+      var useNsr = true;
       try {
-        useNsr = /(?:[?&])nsr=on(?:&|$)/i.test(window.location.search || '');
+        if (/(?:[?&])nsr=off(?:&|$)/i.test(window.location.search || '')) useNsr = false;
       } catch (e) { /* sin location.search */ }
-      var providers = ((CONFIG.embeds && CONFIG.embeds.providers) || ['vidsrc', 'vidlink', 'vimeus']).slice();
-      if (useNsr && providers.indexOf('nasriplay') === -1) providers.push('nasriplay');
+      var providers = ((CONFIG.embeds && CONFIG.embeds.providers) || ['nasriplay', 'vidsrc', 'vidlink', 'vimeus']).slice();
+      if (useNsr && providers.indexOf('nasriplay') === -1) providers.unshift('nasriplay');
+      if (!useNsr) providers = providers.filter(function (p) { return p !== 'nasriplay'; });
       return new EmbedAdapter({
         tmdbKey: (CONFIG.tmdb && CONFIG.tmdb.apiKey) || '',
         tmdbBase: (CONFIG.tmdb && CONFIG.tmdb.baseUrl) || 'https://api.themoviedb.org/3',
