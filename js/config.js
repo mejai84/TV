@@ -922,7 +922,7 @@ EmbedAdapter.prototype._resolveBySlug = function (item) {
         .then(function (d) {
           var play = d && d.data && (d.data.playUrl || d.data.play_url);
           if (play) {
-            out.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: s.language || s.name || '' });
+            out.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: 'NasriPlay' + (s.language ? ' · ' + s.language : '') });
             return; // ya tenemos uno reproducible
           }
           return step();
@@ -1010,7 +1010,7 @@ EmbedAdapter.prototype.resolve = function (item) {
               .then(function (d2) {
                 var play = d2 && (d2.playUrl || d2.play_url || (d2.data && d2.data.playUrl));
                 if (play) {
-                  priority.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: srv.language || srv.name || 'NsrPlay' });
+                  priority.push({ url: play, quality: 'FHD', headers: {}, expiresAt: 0, label: 'NasriPlay' + (srv.language ? ' · ' + srv.language : '') });
                   return;
                 }
                 return attempt(idx + 1);
@@ -1033,7 +1033,7 @@ EmbedAdapter.prototype.resolve = function (item) {
     } else {
       // Proveedores publicos: URL directa de embed (iframe).
       var url = self._embedUrl(provider, item);
-      if (url) others.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0 });
+      if (url) others.push({ url: url, quality: 'FHD', headers: {}, expiresAt: 0, label: provider });
     }
   }
 

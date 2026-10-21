@@ -47,6 +47,9 @@ function Player(videoEl, statusEl) {
   this.levels = [];
   this.wantedLevel = -1;    // -1 = automatico
   this.onError = null;      // callback para la UI
+  this.onStreamChange = null; // callback al cambiar de servidor
+  this._switching = false;  // evita failover mientras se cambia de servidor
+  this._errorBound = false; // listener de error montado una sola vez
 }
 
 /* ------------------------------------------------------------------ *
@@ -112,6 +115,30 @@ Player.prototype.play = function (item, streams, resolver) {
   return this._openCurrent();
 };
 
+/** Lista de servidores disponibles para el contenido actual. */
+Player.prototype.getStreams = function () { return (this.streams || []).slice(); };
+
+/** Indice del servidor que se esta usando. */
+Player.prototype.getCurrent = function () { return this.current; };
+
+/**
+ * Cambia al servidor indicado sin salir del capitulo/pelicula.
+ * Vuelve a montar el reproductor (iframe u HLS) con la nueva URL.
+ */
+Player.prototype.setStream = function (index) {
+  index = parseInt(index, 10);
+  if (!this.streams || !(index >= 0 && index < this.streams.length)) return false;
+  this.current = index;
+  this.attempt = 0;
+  this._switching = true;
+  this._detach();
+  this.embedMode = Player.isEmbedUrl(this.streams[index].url);
+  this._attach();
+  var p = this._openCurrent();
+  this._switching = false;
+  return true;
+};
+
 Player.prototype._attach = function () {
   var self = this;
   if (this.hls) { try { this.hls.destroy(); } catch (e) {} this.hls = null; }
@@ -127,10 +154,16 @@ Player.prototype._attach = function () {
     if (this.iframe) this.iframe.style.display = 'none';
   }
 
-  this.video.addEventListener('error', function () {
-    // El elemento <video> fallo: normalmente el stream esta caido.
-    self._onStreamError();
-  });
+  if (!this._errorBound) {
+    this.video.addEventListener('error', function () {
+      // El elemento <video> fallo: normalmente el stream esta caido.
+      // Al cambiar de servidor se limpia el src y algunos TV disparan error:
+      // ese caso no debe saltar al siguiente servidor.
+      if (self._switching) return;
+      self._onStreamError();
+    });
+    this._errorBound = true;
+  }
 };
 
 Player.prototype._openCurrent = function () {
@@ -140,6 +173,7 @@ Player.prototype._openCurrent = function () {
   if (!stream) { this._fail('Se agotaron todos los servidores.'); return Promise.resolve(); }
 
   this._setStatus('Conectando (' + (this.current + 1) + '/' + this.streams.length + ')…');
+  if (this.onStreamChange) this.onStreamChange(this.current, this.streams);
   // Modo embed (iframe): no hay HLS que cargar, solo se asigna el src.
   if (this.embedMode) {
     if (this.iframe) {
@@ -147,7 +181,7 @@ Player.prototype._openCurrent = function () {
       this.iframe.style.display = 'block';
       this.video.style.display = 'none';
     }
-    this._setStatus('Reproduciendo (embed)');
+    this._setStatus('Reproduciendo · ' + (stream.label || ('servidor ' + (this.current + 1))));
     return Promise.resolve();
   }
 
@@ -206,7 +240,7 @@ Player.prototype._openCurrent = function () {
     });
 
     hls.on(Hls.Events.MANIFEST_PARSED, function () {
-      self._setStatus('Reproduciendo');
+      self._setStatus('Reproduciendo' + (stream.label ? ' · ' + stream.label : ''));
       self._applyLevel();
       var pp = self.video.play();
       if (pp && pp.catch) pp.catch(function () {

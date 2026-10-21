@@ -222,6 +222,7 @@
     player = new Player(el.video, el.status);
     player.onError = function (m) { toast(m); };
     player.onLevels = function (l) { renderQuality(l); };
+    player.onStreamChange = function () { updateServerActive(); };
 
     guide = new Guide(el.epgRoot, {
       hours: (CONFIG.epg && CONFIG.epg.hours) || 6,
@@ -1757,6 +1758,7 @@
         toast('Sin URL disponible para "' + item.title + '"');
         return;
       }
+      renderServerPanel(streams);
       return player.play(item, streams, function (i) { return state.adapter.resolve(i); });
     }).catch(function (e) {
       // Marcar el canal como fallido para no volver a intentarlo.
@@ -1861,6 +1863,9 @@
     if (pePanel) pePanel.style.display = (vod && isSeriesPlay) ? 'block' : 'none';
     var btnEp = $('btnEpisodes');
     if (btnEp) btnEp.style.display = (vod && isSeriesPlay) ? 'inline-flex' : 'none';
+    var btnSrv = $('btnServers');
+    if (btnSrv && !vod) btnSrv.style.display = 'none';
+    if (name !== 'player') closeServerPanel();
     if (vod) { try { el.playerUI.scrollTop = 0; } catch (e) {} }
 
     if (name !== 'player') player.stop(true);
@@ -1935,6 +1940,11 @@
         e.preventDefault(); return;
       }
 
+      if (isServerPanelOpen() && (isKey(e, KEY.BACK) || e.keyCode === 27)) {
+        closeServerPanel();
+        e.preventDefault(); return;
+      }
+
       if (isKey(e, KEY.BACK)) {
         if (state.screen === 'player') { goBackToList(); }
         else if (state.screen === 'detail') { showScreen('catalog'); }
@@ -1966,14 +1976,16 @@
         resetPlayerControlsTimer();
         if (isEmbedsMode()) {
           // VOD: las flechas recorren controles y capítulos con el mando.
+          var panelOpen = isServerPanelOpen();
+          var navRoot = panelOpen ? $('serverPanel') : el.playerUI;
           var pdx = isKey(e, KEY.RIGHT) ? 1 : isKey(e, KEY.LEFT) ? -1 : 0;
           var pdy = isKey(e, KEY.DOWN) ? 1 : isKey(e, KEY.UP) ? -1 : 0;
           if (pdx || pdy) {
-            var moved = spatialMove(el.playerUI, pdx, pdy);
+            var moved = spatialMove(navRoot, pdx, pdy);
             // Si ya no hay otro control en esa direccion (p.ej. final de la
             // lista de capitulos), desplazamos la pantalla para poder seguir
             // viendo el resto sin depender de la barra de scroll.
-            if (!moved && pdy) {
+            if (!moved && pdy && !panelOpen) {
               var c = el.playerUI;
               if (c && c.scrollHeight > c.clientHeight) {
                 var stageH = (el.playerStage && el.playerStage.offsetHeight) || 0;
@@ -2552,10 +2564,92 @@
         toast('Sin URL disponible para "' + epItem.title + '"');
         return;
       }
+      renderServerPanel(streams);
       return player.play(epItem, streams, function (i) { return state.adapter.resolve(i); });
     }).catch(function (e) {
       toast('Error: ' + e.message);
     });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Selector de servidor (cambiar de fuente sin salir del capitulo)
+   * ---------------------------------------------------------------- */
+  function isServerPanelOpen() {
+    var p = $('serverPanel');
+    return !!(p && p.style.display !== 'none');
+  }
+
+  function closeServerPanel() {
+    var p = $('serverPanel');
+    if (p) p.style.display = 'none';
+    var b = $('btnServers');
+    if (b && b.style.display !== 'none') {
+      try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
+    }
+  }
+
+  function updateServerActive() {
+    var list = $('serverList');
+    if (!list || !player) return;
+    var cur = player.getCurrent();
+    var rows = list.querySelectorAll('.serverBtn');
+    for (var i = 0; i < rows.length; i++) {
+      var on = parseInt(rows[i].getAttribute('data-server'), 10) === cur;
+      rows[i].className = 'serverBtn' + (on ? ' active' : '');
+      var now = rows[i].querySelector('.sNow');
+      if (now) now.style.display = on ? '' : 'none';
+    }
+  }
+
+  function renderServerPanel(streams) {
+    var list = $('serverList');
+    var btn = $('btnServers');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (!streams || !streams.length) {
+      if (btn) btn.style.display = 'none';
+      var p0 = $('serverPanel');
+      if (p0) p0.style.display = 'none';
+      return;
+    }
+
+    for (var i = 0; i < streams.length; i++) {
+      (function (idx) {
+        var s = streams[idx] || {};
+        var isDirect = !Player.isEmbedUrl(s.url);
+        var label = s.label || ('Servidor ' + (idx + 1));
+        var tag = /latino|\blat\b/i.test(label) ? 'Latino' : (isDirect ? 'Directo' : 'Embed');
+        var row = document.createElement('button');
+        row.className = 'serverBtn';
+        row.setAttribute('tabindex', '0');
+        row.setAttribute('data-server', String(idx));
+        row.innerHTML = '<span class="sTag">' + Utils.esc(tag) + '</span>' +
+                        '<span class="sName">' + Utils.esc(label) + '</span>' +
+                        '<span class="sNow" style="display:none">Actual</span>';
+        row.addEventListener('click', function () {
+          if (!player) return;
+          player.setStream(idx);
+          closeServerPanel();
+        });
+        list.appendChild(row);
+      })(i);
+    }
+
+    if (btn && isEmbedsMode()) btn.style.display = 'inline-flex';
+    updateServerActive();
+  }
+
+  function openServerPanel() {
+    var p = $('serverPanel');
+    if (!p) return;
+    if (!player || !player.getStreams().length) { toast('Sin servidores disponibles'); return; }
+    p.style.display = 'flex';
+    updateServerActive();
+    var first = p.querySelector('.serverBtn') || $('serverClose');
+    if (first) {
+      try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); }
+    }
   }
 
   /* ---------------------------------------------------------------- *
@@ -2726,6 +2820,17 @@
       if (!panel) return;
       try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       catch (e) { panel.scrollIntoView(); }
+    });
+
+    var btnSrv = $('btnServers');
+    if (btnSrv) btnSrv.addEventListener('click', function () {
+      if (isServerPanelOpen()) closeServerPanel(); else openServerPanel();
+    });
+    var srvClose = $('serverClose');
+    if (srvClose) srvClose.addEventListener('click', closeServerPanel);
+    var srvPanel = $('serverPanel');
+    if (srvPanel) srvPanel.addEventListener('click', function (e) {
+      if (e.target === srvPanel) closeServerPanel();
     });
   });
 
