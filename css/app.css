@@ -1638,6 +1638,15 @@ body.embeds-mode #btnSearch { display: none !important; }
   border-radius: 0 0 14px 14px;
   background: #0f1a2c;
 }
+.peScrollBtns { display: flex; gap: 6px; margin-left: auto; }
+.peScrollBtn {
+  width: 40px; height: 40px;
+  font-size: 16px; line-height: 1; color: #8ba0bd;
+  background: #1a2740; border: 1px solid #1e3050; border: 1px solid var(--rule);
+  border-radius: 6px; cursor: pointer;
+}
+.peScrollBtn:hover { color: #eaf2ff; background: #223355; }
+.peScrollBtn:focus { color: #060b14; outline: none; background: #5db4ff; border-color: #9ed0ff; }
 .peNavBtn {
   flex: 0 0 auto;
   padding: 8px 14px;

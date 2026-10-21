@@ -2612,6 +2612,20 @@
         row.addEventListener('click', function () {
           playSeriesEpisode(item, currentSeason, ep.number);
         });
+        row.addEventListener('focus', function () {
+          var container = el.playerUI;
+          if (!container) return;
+          var stageH = (el.playerStage && el.playerStage.offsetHeight) || 0;
+          var cRect = container.getBoundingClientRect();
+          var rRect = row.getBoundingClientRect();
+          var topLimit = cRect.top + stageH + 8;
+          var bottomLimit = cRect.bottom - 8;
+          if (rRect.bottom > bottomLimit) {
+            container.scrollTop += (rRect.bottom - bottomLimit);
+          } else if (rRect.top < topLimit) {
+            container.scrollTop -= (topLimit - rRect.top);
+          }
+        });
         list.appendChild(row);
       })(eps[e]);
     }
@@ -2681,6 +2695,18 @@
     if (prev) prev.addEventListener('click', function () { stepEpisode(-1); });
     var next = $('btnNextEpisode');
     if (next) next.addEventListener('click', function () { stepEpisode(1); });
+
+    function scrollEpisodePanel(dir) {
+      var c = el.playerUI;
+      if (!c) return;
+      var stageH = (el.playerStage && el.playerStage.offsetHeight) || 0;
+      var amount = Math.max(120, Math.round((c.clientHeight - stageH) * 0.75));
+      c.scrollTop += (dir > 0 ? amount : -amount);
+    }
+    var peUp = $('peScrollUp');
+    if (peUp) peUp.addEventListener('click', function () { scrollEpisodePanel(-1); });
+    var peDown = $('peScrollDown');
+    if (peDown) peDown.addEventListener('click', function () { scrollEpisodePanel(1); });
 
     var btnEp = $('btnEpisodes');
     if (btnEp) btnEp.addEventListener('click', function () {
