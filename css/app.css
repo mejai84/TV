@@ -1546,6 +1546,10 @@ body.embeds-mode #btnSearch { display: none !important; }
   background: rgba(59,130,246,.13);
   transform: translateY(-1px);
 }
+.episodeCard.active {
+  border-color: #5db4ff;
+  background: rgba(59,130,246,.2);
+}
 .episodeCard .epNum {
   display: inline-block;
   margin-bottom: 4px;

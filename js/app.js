@@ -1126,6 +1126,15 @@
       node.className += ' focused';
       state.card = parseInt(node.getAttribute('data-card'), 10) || 0;
     }
+    // Si el foco cae en un capitulo de la ficha, el boton "Ver" debe
+    // reflejar ese capitulo (algunos TV no disparan eventos focus).
+    if (node.classList && node.classList.contains('episodeCard')) {
+      var epFocus = parseInt(node.getAttribute('data-episode'), 10);
+      if (epFocus) {
+        seriesOverlayState.currentEpisode = epFocus;
+        markSelectedEpisode();
+      }
+    }
     try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
 
     // scrollIntoView con opciones no funciona en varios navegadores de TV:
@@ -2239,6 +2248,7 @@
     seriesOverlayState.seasons = [];
     seriesOverlayState.episodes = [];
     seriesOverlayState.currentSeason = 1;
+    seriesOverlayState.currentEpisode = 1;
 
     var isSeries = (item.kind === 'series' || item.kind === 'tv');
 
@@ -2250,6 +2260,7 @@
     if (episodesBox) episodesBox.style.display = isSeries ? 'block' : 'none';
     if (castBox) castBox.style.display = 'none';
     if ($('detailPlayText')) $('detailPlayText').textContent = isSeries ? 'Ver T1 E1' : 'Ver ahora';
+    if (isSeries) updateDetailPlayButton();
 
     showScreen('detail');
 
@@ -2422,6 +2433,20 @@
       });
   }
 
+  /** Refresca el boton grande de la ficha con la temporada/episodio elegidos. */
+  function updateDetailPlayButton() {
+    var txt = $('detailPlayText');
+    if (!txt) return;
+    var it = seriesOverlayState.item;
+    if (!it || (it.kind !== 'series' && it.kind !== 'tv')) {
+      txt.textContent = 'Ver ahora';
+      return;
+    }
+    var sn = parseInt(seriesOverlayState.currentSeason, 10) || 1;
+    var en = parseInt(seriesOverlayState.currentEpisode, 10) || 1;
+    txt.textContent = 'Ver T' + sn + ' E' + en;
+  }
+
   function selectSeason(seasonNum) {
     var seasons = seriesOverlayState.seasons || [];
     for (var i = 0; i < seasons.length; i++) {
@@ -2450,6 +2475,7 @@
         seriesOverlayState.currentEpisode = 1;
         renderSeasonTabs();
         loadEpisodes(sn);
+        updateDetailPlayButton();
       });
       tabs.appendChild(btn);
     }
@@ -2501,6 +2527,16 @@
       });
   }
 
+  function markSelectedEpisode() {
+    var cards = document.querySelectorAll('#episodeList .episodeCard');
+    for (var i = 0; i < cards.length; i++) {
+      var n = parseInt(cards[i].getAttribute('data-episode'), 10);
+      var on = n === seriesOverlayState.currentEpisode;
+      cards[i].className = 'episodeCard' + (on ? ' active' : '');
+    }
+    updateDetailPlayButton();
+  }
+
   function renderEpisodes(episodes, seasonNum) {
     var el2 = document.getElementById('episodeList');
     if (!el2) return;
@@ -2510,21 +2546,32 @@
       return;
     }
     for (var i = 0; i < episodes.length; i++) {
-      var ep = episodes[i];
-      var card = document.createElement('div');
-      card.className = 'episodeCard';
-      card.setAttribute('tabindex', '0');
-      var still = ep.still || '';
-      var imgHtml = still ? '<img class="epStill" src="' + Utils.esc(still) + '" alt="" loading="lazy">' : '';
-      card.innerHTML = imgHtml +
-        '<span class="epNum">E' + Epg.pad2(ep.number) + '</span>' +
-        '<span class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.number)) + '</span>';
-      (function (epNum) {
-        card.addEventListener('click', function () {
-          playSeriesEpisode(seriesOverlayState.item, seasonNum, epNum);
+      (function (ep) {
+        var card = document.createElement('div');
+        card.className = 'episodeCard';
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('data-episode', String(ep.number));
+        var still = ep.still || '';
+        var imgHtml = still ? '<img class="epStill" src="' + Utils.esc(still) + '" alt="" loading="lazy">' : '';
+        card.innerHTML = imgHtml +
+          '<span class="epNum">E' + Epg.pad2(ep.number) + '</span>' +
+          '<span class="epName">' + Utils.esc(ep.name || ('Episodio ' + ep.number)) + '</span>';
+        if (seasonNum === seriesOverlayState.currentSeason && ep.number === seriesOverlayState.currentEpisode) {
+          card.className += ' active';
+        }
+        card.addEventListener('focus', function () {
+          seriesOverlayState.currentSeason = seasonNum;
+          seriesOverlayState.currentEpisode = ep.number;
+          markSelectedEpisode();
         });
-      })(ep.number);
-      el2.appendChild(card);
+        card.addEventListener('click', function () {
+          seriesOverlayState.currentSeason = seasonNum;
+          seriesOverlayState.currentEpisode = ep.number;
+          markSelectedEpisode();
+          playSeriesEpisode(seriesOverlayState.item, seasonNum, ep.number);
+        });
+        el2.appendChild(card);
+      })(episodes[i]);
     }
   }
 
@@ -2533,6 +2580,9 @@
     state.seriesSeason = season;
     state.seriesEpisode = episode;
     state.panelSeason = season;
+    seriesOverlayState.currentSeason = season;
+    seriesOverlayState.currentEpisode = episode;
+    updateDetailPlayButton();
 
     var epItem = {
       id: item.id,
@@ -2789,9 +2839,24 @@
           playSeriesEpisode(it, 1, 1);
           return;
         }
-        var eps = seasons[0].episodes || [];
-        if (!eps.length) { toast('Sin episodios disponibles'); return; }
-        playSeriesEpisode(it, seasons[0].number, eps[0].number);
+        var sn = parseInt(seriesOverlayState.currentSeason, 10) || seasons[0].number;
+        var en = parseInt(seriesOverlayState.currentEpisode, 10) || 1;
+        var seasonObj = null;
+        for (var si = 0; si < seasons.length; si++) {
+          if (seasons[si].number === sn) { seasonObj = seasons[si]; break; }
+        }
+        var eps = (seasonObj && seasonObj.episodes) || [];
+        if (!eps.length) {
+          // La temporada aun no tiene episodios cargados: el embed acepta
+          // la temporada/episodio igualmente.
+          playSeriesEpisode(it, sn, en);
+          return;
+        }
+        var exists = false;
+        for (var ei = 0; ei < eps.length; ei++) {
+          if (eps[ei].number === en) { exists = true; break; }
+        }
+        playSeriesEpisode(it, sn, exists ? en : eps[0].number);
       } else {
         startPlayback(it);
       }
