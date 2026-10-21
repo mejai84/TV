@@ -527,8 +527,9 @@
         buildGroups();
         if (!state.items.length) {
           el.shelves.innerHTML =
-            '<div class="epg-empty">Aun no hay novedades registradas.<br>' +
-            'Se detectan solas cuando el escáner diario corre y alguien resuelve un titulo.</div>';
+            '<div class="epg-empty">Aún no hay novedades registradas.<br>' +
+            'Solo se muestran títulos detectados recientemente por el escáner diario ' +
+            '(últimos 14 días). El catálogo completo está en Películas y Series.</div>';
         }
         if (lb) lb.className = 'loadingBar';
       })
@@ -921,6 +922,15 @@
     var html = '<div class="catalogPage">' +
       '<div class="catalogHead"><h1>' + Utils.esc(title) + '</h1>' +
       '<span class="catalogCount">' + total + unit + '</span></div>';
+
+    // Aclaracion para que no se confunda con el catalogo completo: Novedades
+    // solo muestra titulos detectados recientemente por el escaner diario.
+    if (isNoveltiesMode()) {
+      html += '<p class="catalogSub">' +
+        'Títulos detectados recientemente (últimos 14 días). ' +
+        'El catálogo completo está en Películas y Series.' +
+        '</p>';
+    }
 
     html += '<div class="catalogLayout">';
 
@@ -1618,7 +1628,10 @@
   function resetPlayerControlsTimer() {
     showPlayerControls();
     if (playerControlsTimer) clearTimeout(playerControlsTimer);
-    if (state.screen === 'player' && !state.stopped) {
+    // En peliculas/series el overlay se queda visible (barra superior compacta)
+    // para no tapar los controles del reproductor embebido; solo se oculta
+    // solo en TV en vivo.
+    if (state.screen === 'player' && !state.stopped && !isEmbedsMode()) {
       playerControlsTimer = setTimeout(hidePlayerControls, 3000);
     }
   }
@@ -1876,6 +1889,10 @@
     document.addEventListener('keydown', function (e) {
       if (e.target === el.search && e.keyCode !== 27 && e.keyCode !== 8) return;
 
+      // En el reproductor, cualquier tecla vuelve a mostrar la barra de
+      // controles (que se oculta sola) para que no se pierdan las opciones.
+      if (state.screen === 'player' && !state.stopped) resetPlayerControlsTimer();
+
       if (isKey(e, KEY.OK)) {
         if (state.screen === 'catalog') {
           var ae = document.activeElement;
@@ -1959,7 +1976,7 @@
         }
         if (isKey(e, KEY.RIGHT)) { playNextChannel(); e.preventDefault(); return; }
         if (isKey(e, KEY.LEFT))  { playPrevChannel(); e.preventDefault(); return; }
-        if (isKey(e, KEY.UP))    { toggleMute(); e.preventDefault(); return; }
+        if (isKey(e, KEY.UP))    { toggleMute(); resetPlayerControlsTimer(); e.preventDefault(); return; }
         if (isKey(e, KEY.DOWN))  { reloadCurrentStream(); e.preventDefault(); return; }
       }
 
