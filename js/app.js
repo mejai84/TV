@@ -1442,7 +1442,18 @@
     // En VOD el iframe debe ocupar toda la pantalla. Si fullscreeneamos el
     // documento, el stage sigue limitado por 78vh y el botón de cerrar del
     // anuncio queda por debajo del área visible.
-    var elem = (isEmbedsMode() && el.playerStage) ? el.playerStage : document.documentElement;
+    // VOD: maximizar dentro de la pagina (sin Fullscreen API).
+    if (isEmbedsMode() && el.playerUI) {
+      if (el.playerUI.classList.contains('maximized')) {
+        el.playerUI.classList.remove('maximized');
+        toast('Modo ventana');
+      } else {
+        el.playerUI.classList.add('maximized');
+        toast('Pantalla completa');
+      }
+      return;
+    }
+    var elem = document.documentElement;
     var isFs = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
     if (!isFs) {
       try {
@@ -2067,6 +2078,11 @@
       }
 
       if (isKey(e, KEY.BACK)) {
+        if (state.screen === 'player' && el.playerUI && el.playerUI.classList.contains('maximized')) {
+          el.playerUI.classList.remove('maximized');
+          toast('Modo ventana');
+          e.preventDefault(); return;
+        }
         if (state.screen === 'player') { goBackToList(); }
         else if (state.screen === 'detail') { showScreen('catalog'); }
         else if (state.screen === 'guide') { showScreen('catalog'); }

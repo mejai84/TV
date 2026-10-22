@@ -1649,6 +1649,28 @@ body.embeds-mode #tabGuide { display: none !important; }
   pointer-events: none;
   transition: opacity .15s ease;
 }
+/* Maximizado dentro de la pagina (sin Fullscreen API): evita que el TV
+   abra el iframe en una ventana nueva y deja ver el boton de cerrar del
+   anuncio. */
+#playerScreen.vod.maximized {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#playerScreen.vod.maximized .playerStage {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+}
+#playerScreen.vod.maximized .overlay,
+#playerScreen.vod.maximized .playerEpisodePanel { display: none !important; }
 /* En VOD se ocultan los botones propios de TV en vivo: la barra queda
    compacta arriba y no tapa los controles del reproductor embebido
    (idioma, calidad, pantalla completa) que viven en la parte baja. */
