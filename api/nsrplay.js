@@ -12,6 +12,8 @@
 
 const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
+import { commonHeaders, rateLimit } from '../lib/api-guard.js';
+
 /**
  * Algunos campos de NasriPlay llegan con el UTF-8 interpretado como Latin-1
  * ("niÃ±a" en vez de "niña"). Se re-codifica solo cuando el resultado es
@@ -26,6 +28,13 @@ function fixEncoding(value) {
     if (fixed.indexOf('\uFFFD') === -1) return fixed;
   } catch (e) { /* se deja como vino */ }
   return value;
+}
+
+function validHttpUrl(value) {
+  try {
+    var u = new URL(String(value));
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch (e) { return false; }
 }
 
 function cleanMetadata(value) {
@@ -44,6 +53,7 @@ function cleanMetadata(value) {
 }
 
 export default async function handler(req, res) {
+  commonHeaders(res);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -52,6 +62,14 @@ export default async function handler(req, res) {
     res.status(204).end();
     return;
   }
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'metodo no permitido' });
+    return;
+  }
+  // La API key de NasriPlay vive en el servidor: sin límite, un tercero
+  // podría consumir la cuota haciendo peticiones al proxy.
+  if (!rateLimit(req, res, 'nsrplay', 120, 60 * 1000)) return;
 
   var action = String(req.query.action || '').toLowerCase();
   var key = process.env.NSRPLAY_API_KEY || '';
@@ -61,7 +79,7 @@ export default async function handler(req, res) {
     var id = String(req.query.id || '').trim();
     var season = String(req.query.season || '').trim();
     var episode = String(req.query.episode || '').trim();
-    if (!id) { res.status(400).json({ error: 'falta id' }); return; }
+    if (!id || id.length > 200) { res.status(400).json({ error: 'id invalido' }); return; }
 
     var t = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
     var path;
@@ -78,7 +96,7 @@ export default async function handler(req, res) {
     var url = NSRPLAY_BASE + path + fast;
 
     try {
-      var r = await fetch(url, { headers: key ? { 'X-API-Key': key } : {} });
+      var r = await fetch(url, { headers: key ? { 'X-API-Key': key } : {}, signal: AbortSignal.timeout(15000) });
       var data = await r.json();
       res.status(r.status).json(data);
     } catch (e) {
@@ -89,14 +107,18 @@ export default async function handler(req, res) {
 
   if (action === 'resolve') {
     var token = String(req.query.token || '').trim();
-    if (!token) { res.status(400).json({ error: 'falta token' }); return; }
+    if (!token || token.length > 2048) { res.status(400).json({ error: 'token invalido' }); return; }
 
     var parentUrl = String(req.query.parentUrl || '').trim();
+    if (parentUrl && (parentUrl.length > 2048 || !validHttpUrl(parentUrl))) {
+      res.status(400).json({ error: 'parentUrl invalida' });
+      return;
+    }
     var url = NSRPLAY_BASE + '/embed/resolve?token=' + encodeURIComponent(token);
     if (parentUrl) url += '&parentUrl=' + encodeURIComponent(parentUrl);
 
     try {
-      var r = await fetch(url, { headers: key ? { 'X-API-Key': key } : {} });
+      var r = await fetch(url, { headers: key ? { 'X-API-Key': key } : {}, signal: AbortSignal.timeout(15000) });
       var data = await r.json();
       res.status(r.status).json(data);
     } catch (e) {
@@ -112,12 +134,12 @@ export default async function handler(req, res) {
   if (action === 'info') {
     var slug = String(req.query.slug || '').trim();
     var itype = String(req.query.type || 'series').toLowerCase();
-    if (!slug) { res.status(400).json({ error: 'falta slug' }); return; }
+    if (!slug || slug.length > 200) { res.status(400).json({ error: 'slug invalido' }); return; }
 
     var infoUrl = NSRPLAY_BASE + '/content/info/' + encodeURIComponent(slug) +
                   '?type=' + encodeURIComponent(itype === 'movie' ? 'movie' : 'series');
     try {
-      var ri = await fetch(infoUrl, { headers: key ? { 'X-API-Key': key } : {} });
+      var ri = await fetch(infoUrl, { headers: key ? { 'X-API-Key': key } : {}, signal: AbortSignal.timeout(15000) });
       var di = await ri.json();
       // Sinopsis, reparto y títulos llegan a veces con el UTF-8 mal decodificado.
       if (di && di.data) {
@@ -138,7 +160,7 @@ export default async function handler(req, res) {
 
   if (action === 'servers') {
     var sslug = String(req.query.slug || '').trim();
-    if (!sslug) { res.status(400).json({ error: 'falta slug' }); return; }
+    if (!sslug || sslug.length > 200) { res.status(400).json({ error: 'slug invalido' }); return; }
     var sseason = String(req.query.season || '1').trim();
     var sepisode = String(req.query.episode || '1').trim();
 
@@ -146,7 +168,7 @@ export default async function handler(req, res) {
                  '&season=' + encodeURIComponent(sseason) +
                  '&episode=' + encodeURIComponent(sepisode);
     try {
-      var rs = await fetch(srvUrl, { headers: key ? { 'X-API-Key': key } : {} });
+      var rs = await fetch(srvUrl, { headers: key ? { 'X-API-Key': key } : {}, signal: AbortSignal.timeout(15000) });
       var ds = await rs.json();
       res.status(rs.status).json(ds);
     } catch (e) {
@@ -157,14 +179,21 @@ export default async function handler(req, res) {
 
   if (action === 'resolve-url') {
     var embedUrl = String(req.query.url || '').trim();
-    if (!embedUrl) { res.status(400).json({ error: 'falta url' }); return; }
+    if (!embedUrl || embedUrl.length > 2048 || !validHttpUrl(embedUrl)) {
+      res.status(400).json({ error: 'url invalida' });
+      return;
+    }
 
     var resUrl = NSRPLAY_BASE + '/content/resolve?url=' + encodeURIComponent(embedUrl);
     var parent = String(req.query.parentUrl || '').trim();
+    if (parent && (parent.length > 2048 || !validHttpUrl(parent))) {
+      res.status(400).json({ error: 'parentUrl invalida' });
+      return;
+    }
     if (parent) resUrl += '&parentUrl=' + encodeURIComponent(parent);
 
     try {
-      var rr = await fetch(resUrl, { headers: key ? { 'X-API-Key': key } : {} });
+      var rr = await fetch(resUrl, { headers: key ? { 'X-API-Key': key } : {}, signal: AbortSignal.timeout(15000) });
       var dr = await rr.json();
       res.status(rr.status).json(dr);
     } catch (e) {

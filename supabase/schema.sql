@@ -6,7 +6,7 @@
 -- solo uso y caducan a los 5 minutos; pedirlos al reproducir.
 
 create table if not exists public.titles (
-  id               text primary key,          -- tmdbId (películas/series) o slug
+  id               text not null,             -- tmdbId (películas/series) o slug
   kind             text not null,             -- 'movie' | 'series'
   title            text not null default '',
   original_title   text default '',
@@ -20,7 +20,10 @@ create table if not exists public.titles (
   source           text default '',
   last_resolved_at timestamptz,               -- cuándo lo resolvió NasriPlay
   first_seen_at    timestamptz not null default now(),  -- cuándo lo detectamos
-  is_new           boolean not null default true
+  is_new           boolean not null default true,
+  -- TMDB usa espacios de ID distintos para películas y series: el ID 550
+  -- puede ser una película y una serie a la vez. La clave debe ser compuesta.
+  primary key (id, kind)
 );
 
 create index if not exists titles_kind_idx         on public.titles (kind);

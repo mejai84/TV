@@ -129,6 +129,7 @@ var CONFIG = {
   // esta congelada en 2023; las de US y GB se actualizan a diario.
   // Para Espana hoy la opcion es bajar el XML y servirlo desde aqui.
   epg: {
+    enabled: false,   // La guia incluida es demo. Pon true si sirves un EPG real.
     url: 'epg.json',
     // Asocia los programas de la guia con los canales del catalogo.
     // 'title' compara por nombre (lo normal en listas IPTV sin tvg-id comun).

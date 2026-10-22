@@ -17,6 +17,7 @@ const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
 import { configured as dbConfigured, upsert as dbUpsert } from '../lib/supabase.js';
 import { itemToRow } from '../lib/titles.js';
+import { commonHeaders, rateLimit } from '../lib/api-guard.js';
 
 function fixEncoding(value) {
   if (typeof value !== 'string') return value;
@@ -45,23 +46,33 @@ function rowFromResolved(x, kind) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  commonHeaders(res);
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
 
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
   }
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'metodo no permitido' });
+    return;
+  }
+  if (!rateLimit(req, res, 'scan', 4, 60 * 1000)) return;
 
-  // Autenticación del cron.
+  // Autenticación del cron. Sin CRON_SECRET este endpoint queda cerrado:
+  // si se dejara abierto, cualquiera podría disparar escrituras en la BD y
+  // consumir la cuota de NasriPlay. Vercel añade el Bearer automáticamente
+  // cuando la variable está configurada.
   var secret = process.env.CRON_SECRET || '';
-  if (secret) {
-    var auth = String(req.headers.authorization || '');
-    if (auth !== 'Bearer ' + secret) {
-      res.status(401).json({ error: 'no autorizado' });
-      return;
-    }
+  if (!secret) {
+    res.status(503).json({ error: 'falta CRON_SECRET; configura la variable para habilitar el escáner' });
+    return;
+  }
+  var auth = String(req.headers.authorization || '');
+  if (auth !== 'Bearer ' + secret) {
+    res.status(401).json({ error: 'no autorizado' });
+    return;
   }
 
   if (!dbConfigured()) {
@@ -81,7 +92,7 @@ export default async function handler(req, res) {
     var cfg = types[i];
     try {
       var url = NSRPLAY_BASE + '/content/resolved?type=' + cfg.t + '&days=3&limit=50&page=1';
-      var r = await fetch(url, { headers: headers });
+      var r = await fetch(url, { headers: headers, signal: AbortSignal.timeout(20000) });
       if (!r.ok) throw new Error('nsrplay HTTP ' + r.status);
       var d = await r.json();
       var list = (d && d.data) || [];

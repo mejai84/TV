@@ -130,13 +130,29 @@ Puesta en marcha:
 
 1. Crea un proyecto en <https://supabase.com>.
 2. En el **SQL Editor** ejecuta `supabase/schema.sql`.
+   Si ya tenías una tabla antigua creada con la clave primaria solo por `id`,
+   ejecuta también `supabase/migration-001-composite-pk.sql` (la clave pasa a
+   ser `(id, kind)`, porque TMDB usa espacios de ID distintos para películas
+   y series).
 3. Copia `Project Settings → API`:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY` (solo servidor)
 4. Añade ambas como variables de entorno en Vercel (Production).
-5. Redespliega. `api/scan` se ejecutará solo cada día; para probar:
+5. Añade también `CRON_SECRET` (una cadena larga aleatoria): el escáner queda
+   cerrado sin ella; Vercel la envía automáticamente en el header
+   `Authorization` de los cron jobs.
+6. Redespliega. `api/scan` se ejecutará solo cada día; para probar:
    `curl -H "Authorization: Bearer $CRON_SECRET" https://<tu-dominio>/api/scan`
-   (o sin cabecera si no has puesto `CRON_SECRET`).
+
+### Variables opcionales
+
+- `PROXY_ALLOWED_HOSTS` (lista separada por comas): si se define, `/api/stream`
+  solo retransmite hosts que terminen en uno de esos sufijos.
+- `ADMIN_TOKEN`: si se define, añadir un título por TMDB exige
+  `Authorization: Bearer <token>`; el cliente lo envía si guardas el token en
+  `localStorage.xupper_admin_token`.
+- `APP_ORIGINS`: orígenes adicionales permitidos en los endpoints que mutan
+  datos (previews de Vercel, por ejemplo).
 
 No hace falta `package.json`: el cliente de la BD usa solo `fetch` (PostgREST).
 

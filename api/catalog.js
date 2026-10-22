@@ -19,6 +19,7 @@ const TMDB_LANG = 'es-CO';
 
 import { configured as dbConfigured, select as dbSelect, upsert as dbUpsert } from '../lib/supabase.js';
 import { rowToItem, itemToRow } from '../lib/titles.js';
+import { commonHeaders, rateLimit } from '../lib/api-guard.js';
 
 /* Caché en memoria del proceso: las búsquedas de TMDB cambian poco y así
    no se repiten en cada visita a /api/catalog. */
@@ -230,6 +231,7 @@ function dedupe(items) {
 }
 
 export default async function handler(req, res) {
+  commonHeaders(res);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -238,6 +240,12 @@ export default async function handler(req, res) {
     res.status(204).end();
     return;
   }
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'metodo no permitido' });
+    return;
+  }
+  if (!rateLimit(req, res, 'catalog', 120, 60 * 1000)) return;
 
   var type = String(req.query.type || 'movie').toLowerCase();
   var page = parseInt(req.query.page, 10) || 1;
@@ -250,7 +258,7 @@ export default async function handler(req, res) {
   var headers = key ? { 'X-API-Key': key } : {};
 
   async function getJson(url) {
-    var r = await fetch(url, { headers: headers });
+    var r = await fetch(url, { headers: headers, signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error('nsrplay HTTP ' + r.status);
     return r.json();
   }

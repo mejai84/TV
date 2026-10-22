@@ -162,6 +162,7 @@
     catalogGenre: '',     // filtro de género activo
     catalogYear: '',      // filtro de año activo
     query: '',
+    deepLinkDone: false,   // ?play= ya procesado
     screen: 'catalog',
     zone: 'shelf',
     shelf: 0,
@@ -173,7 +174,7 @@
     quickFilter: 'all',    // filtro rapido: all | hd | live | recent
     sortBy: 'name',        // orden: name | recent | quality
     aspectIdx: 0,          // indice del modo de aspecto
-    theme: 'dark',         // tema: dark | light | contrast
+    theme: 'light',        // tema: light | contrast (la app es clara por defecto)
     fontSize: 0            // 0 normal, 1 grande, 2 extra
   };
 
@@ -200,6 +201,8 @@
     el.clock     = $('clock');
     el.video     = $('video');
     el.playerStage = $('playerStage');
+    el.embedFrame = $('embedFrame');
+    el.btnOpenEmbed = $('btnOpenEmbed');
     el.title     = $('nowTitle');
     el.quality   = $('quality');
     el.brand     = $('brand') || null;
@@ -222,7 +225,7 @@
     player = new Player(el.video, el.status);
     player.onError = function (m) { toast(m); };
     player.onLevels = function (l) { renderQuality(l); };
-    player.onStreamChange = function () { updateServerActive(); };
+    player.onStreamChange = function () { updateServerActive(); updatePlayerMode(); };
 
     guide = new Guide(el.epgRoot, {
       hours: (CONFIG.epg && CONFIG.epg.hours) || 6,
@@ -319,7 +322,8 @@
     });
 
     el.search.addEventListener('keydown', function (e) {
-      if (e.keyCode === 13 || e.keyCode === 27) el.search.blur();
+      if (e.keyCode === 13) el.search.blur();
+      else if (e.keyCode === 27) { e.preventDefault(); clearSearch(); }
     });
 
     var btnSearch = $('btnSearch');
@@ -327,7 +331,7 @@
     var btnOpenSearch = $('btnOpenSearch');
     if (btnOpenSearch) btnOpenSearch.addEventListener('click', function () { toggleSearch(); });
     var btnCloseSearch = $('btnCloseSearch');
-    if (btnCloseSearch) btnCloseSearch.addEventListener('click', function () { closeSearch(); });
+    if (btnCloseSearch) btnCloseSearch.addEventListener('click', function () { clearSearch(); });
 
     var btnGuide = $('btnGuide');
     if (btnGuide) btnGuide.addEventListener('click', function () { showScreen('guide'); });
@@ -349,6 +353,8 @@
     if (btnMute) btnMute.addEventListener('click', function () { toggleMute(); });
     var btnFs = $('btnFullscreen');
     if (btnFs) btnFs.addEventListener('click', function () { toggleFullscreen(); });
+    var btnOpenEmbed = $('btnOpenEmbed');
+    if (btnOpenEmbed) btnOpenEmbed.addEventListener('click', function () { openCurrentEmbed(); });
     var btnAspect = $('btnAspect');
     if (btnAspect) btnAspect.addEventListener('click', function () { toggleAspect(); });
     var btnInfo = $('btnInfo');
@@ -383,6 +389,15 @@
     if (btnAddTitleSubmit) btnAddTitleSubmit.addEventListener('click', function () { submitAddTitle(); });
     var btnAddTitleCancel = $('btnAddTitleCancel');
     if (btnAddTitleCancel) btnAddTitleCancel.addEventListener('click', function () { closeAddTitle(); });
+    // El campo de TMDB es el unico input de texto de la app. Enter confirma
+    // sin cerrar el modal; el manejador global de teclas no debe interceptar
+    // letras, numeros ni Backspace (ver bindInput).
+    var addTitleIdEl = $('addTitleId');
+    if (addTitleIdEl) {
+      addTitleIdEl.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) { e.preventDefault(); e.stopPropagation(); submitAddTitle(); }
+      });
+    }
 
     var btnCloseGuide = $('btnCloseGuide');
     if (btnCloseGuide) btnCloseGuide.addEventListener('click', function () { showScreen('catalog'); });
@@ -418,7 +433,10 @@
 
     // Inicializar tema y tamano de fuente guardados.
     try {
-      var t = localStorage.getItem('tv_theme'); if (t) state.theme = t;
+      // La app es clara por defecto. El modo "dark" anterior se migra a claro;
+      // solo se conserva la preferencia de alto contraste.
+      var t = localStorage.getItem('tv_theme');
+      state.theme = (t === 'contrast') ? 'contrast' : 'light';
       var f = localStorage.getItem('tv_font'); if (f) state.fontSize = parseInt(f, 10) || 0;
     } catch (e) {}
     applyThemeMode();
@@ -523,9 +541,11 @@
         state.allItems = items;
         state.failed = loadFailed();
         state.items = state.allItems.filter(function (it) { return state.failed.indexOf(it.id) === -1; });
+        state.indice = null;
         state.byId = {};
         for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
         buildGroups();
+        maybeOpenDeepLink();
         if (!state.items.length) {
           el.shelves.innerHTML =
             '<div class="epg-empty">Aún no hay novedades registradas.<br>' +
@@ -572,9 +592,14 @@
         }
       } catch (e) { /* sin location.search */ }
 
+      // El índice de búsqueda se construye con state.items; al cambiar de
+      // sección o de filtro hay que invalidarlo o el buscador VOD devuelve
+      // resultados de la lista anterior.
+      state.indice = null;
       state.byId = {};
       for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
       buildGroups();
+      maybeOpenDeepLink();
       if (!state.items.length) {
         // Sin esto la pantalla queda en negro sin explicar nada, que es lo
         // que mas desconcierta cuando una lista remota falla o va vacia.
@@ -785,8 +810,10 @@
     if (!state.query) { el.count.textContent = ''; return; }
 
     var n = state.groups.length ? state.groups[0].items.length : 0;
-    el.count.textContent = n + (n === 1 ? ' canal' : ' canales') +
-      ' de ' + state.items.length;
+    var unit = isEmbedsMode()
+      ? (n === 1 ? ' resultado' : ' resultados')
+      : (n === 1 ? ' canal' : ' canales');
+    el.count.textContent = n + unit + ' de ' + state.items.length;
   }
 
   function updateLangUI() {
@@ -1397,14 +1424,21 @@
 
   function toggleFullscreen() {
     var doc = document;
-    var elem = document.documentElement;
+    // En VOD el iframe debe ocupar toda la pantalla. Si fullscreeneamos el
+    // documento, el stage sigue limitado por 78vh y el botón de cerrar del
+    // anuncio queda por debajo del área visible.
+    var elem = (isEmbedsMode() && el.playerStage) ? el.playerStage : document.documentElement;
     var isFs = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
     if (!isFs) {
-      if (elem.requestFullscreen) elem.requestFullscreen();
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-      toast('Pantalla completa');
+      try {
+        if (elem.requestFullscreen) elem.requestFullscreen();
+        else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+        else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
+        else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+        toast('Pantalla completa');
+      } catch (e) {
+        toast('Pantalla completa no disponible');
+      }
     } else {
       if (doc.exitFullscreen) doc.exitFullscreen();
       else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
@@ -1456,7 +1490,21 @@
 
   function shareChannel() {
     if (!state.playing) return;
-    var url = location.href.split('?')[0] + '?play=' + encodeURIComponent(state.playing.id);
+    var src = activeSource();
+    var q = '?play=' + encodeURIComponent(state.playing.id) + '&src=' + encodeURIComponent(src);
+    if (src === 'embeds') {
+      var isSeries = state.playing.kind === 'series' || state.playing.kind === 'tv';
+      q += '&kind=' + (isSeries ? 'series' : 'movie');
+      // En NasriPlay el id puede ser el slug; el tmdbId permite abrir la
+      // ficha aunque el título no esté en las primeras páginas del catálogo.
+      if (state.playing.tmdbId && String(state.playing.tmdbId) !== String(state.playing.id)) {
+        q += '&tmdb=' + encodeURIComponent(state.playing.tmdbId);
+      }
+    } else {
+      var cc = currentSourceKey();
+      if (cc) q += '&cc=' + encodeURIComponent(cc);
+    }
+    var url = location.href.split('?')[0] + q;
     if (navigator.share) {
       navigator.share({ title: state.playing.title, url: url }).catch(function () {});
     } else if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1468,19 +1516,17 @@
   }
 
   function toggleTheme() {
-    if (state.theme === 'dark') state.theme = 'light';
-    else if (state.theme === 'light') state.theme = 'contrast';
-    else state.theme = 'dark';
+    state.theme = (state.theme === 'contrast') ? 'light' : 'contrast';
     try { localStorage.setItem('tv_theme', state.theme); } catch (e) {}
     applyThemeMode();
-    toast('Tema: ' + (state.theme === 'dark' ? 'oscuro' : (state.theme === 'light' ? 'claro' : 'alto contraste')));
+    toast('Tema: ' + (state.theme === 'light' ? 'claro' : 'alto contraste'));
   }
 
   function applyThemeMode() {
     document.body.className = document.body.className
       .replace(/\btema-claro\b/g, '').replace(/\balto-contraste\b/g, '').replace(/\s+/g, ' ').trim();
-    if (state.theme === 'light') document.body.className += ' tema-claro';
-    else if (state.theme === 'contrast') document.body.className += ' alto-contraste';
+    document.body.className += ' tema-claro';
+    if (state.theme === 'contrast') document.body.className += ' alto-contraste';
   }
 
   function applyFontSize() {
@@ -1560,8 +1606,18 @@
     var type = ($('addTitleType') && $('addTitleType').value) || 'movie';
     var st = $('addTitleStatus');
     if (!id) { if (st) st.textContent = 'Ingresa un TMDB ID.'; return; }
+    if (!/^\d{1,10}$/.test(id)) { if (st) st.textContent = 'El ID de TMDB debe ser numérico.'; return; }
     if (st) st.textContent = 'Buscando…';
-    fetch('/api/add-title?id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type))
+    var headers = { 'Content-Type': 'application/json' };
+    try {
+      var adminToken = localStorage.getItem('xupper_admin_token') || '';
+      if (adminToken) headers.Authorization = 'Bearer ' + adminToken;
+    } catch (e) { /* localStorage puede estar bloqueado */ }
+    fetch('/api/add-title', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ id: id, type: type })
+    })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         if (!res.ok || !res.d || !res.d.item) {
@@ -1582,6 +1638,7 @@
           if (state.items[i].id === item.id) { exists = true; break; }
         }
         if (!exists) state.items.push(item);
+        state.indice = null;
         if (!state.allItems) state.allItems = state.items.slice();
         else {
           var aexists = false;
@@ -1661,19 +1718,28 @@
    */
   function applyTheme(theme) {
     var app = document.body;
-    app.className = app.className.replace(/\btema-\S+/g, '').replace(/\s+/g, ' ').trim();
+    // Ojo: no borrar "tema-claro". Antes se usaba /\btema-\S+/ y al cambiar
+    // de categoria o al buscar se perdia el tema claro.
+    app.className = app.className
+      .replace(/\btema-(?:all|sports|movies|series|kids|news|docs|music|entertainment|faith|culture|lifestyle|family|business|education|public|other)\b/g, '')
+      .replace(/\s+/g, ' ').trim();
     app.className += ' tema-' + (theme || 'other');
   }
 
   function openSearch() {
-    // En Peliculas/Series no hay canales que filtrar: no abrir el buscador.
-    try { if (activeSource() === 'embeds') return; } catch (e) { /* */ }
+    var vod = isEmbedsMode();
     state.searchOpen = true;
     el.panel.className = 'searchPanel on';
     el.search.className = 'search open';
+    el.search.setAttribute('placeholder', vod
+      ? 'Buscar películas y series...'
+      : 'Buscar canales...');
     el.search.focus();
-    toast(isTouch() ? 'Escribe el nombre de un canal'
-                    : 'Escribe para buscar y pulsa BACK o ESC para cerrar');
+    toast(vod
+      ? (isTouch() ? 'Escribe un título para filtrar el catálogo'
+                   : 'Escribe un título; ESC o × para cerrar')
+      : (isTouch() ? 'Escribe el nombre de un canal'
+                   : 'Escribe para buscar y pulsa BACK o ESC para cerrar'));
   }
 
   /** true en movil o tableta: cambia el texto de ayuda, no el comportamiento. */
@@ -1687,6 +1753,18 @@
     el.search.blur();
     el.count.textContent = '';
     if (el.panel) el.panel.className = 'searchPanel';
+  }
+
+  /** Cierra el buscador y devuelve el catálogo completo (X o ESC). */
+  function clearSearch() {
+    if (el.search) el.search.value = '';
+    state.query = '';
+    state.shelf = 0;
+    state.card = 0;
+    state.masFocus = false;
+    closeSearch();
+    buildGroups();
+    render();
   }
 
   /* ---------------------------------------------------------------- *
@@ -1777,6 +1855,7 @@
         localStorage.setItem('tv_failed', JSON.stringify(failed));
         state.failed = failed;
         state.items = state.allItems.filter(function (it) { return state.failed.indexOf(it.id) === -1; });
+        state.indice = null;
         state.byId = {};
         for (var i = 0; i < state.items.length; i++) state.byId[state.items[i].id] = state.items[i];
         buildGroups(); updateSearchUi();
@@ -1869,6 +1948,7 @@
     var pePanel = $('playerEpisodePanel');
     var isSeriesPlay = !!(state.seriesItem && (state.seriesItem.kind === 'series' || state.seriesItem.kind === 'tv'));
     el.playerUI.className = vod ? ('vod' + (isSeriesPlay ? ' has-episodes' : '')) : '';
+    updatePlayerMode();
     if (pePanel) pePanel.style.display = (vod && isSeriesPlay) ? 'block' : 'none';
     var btnEp = $('btnEpisodes');
     if (btnEp) btnEp.style.display = (vod && isSeriesPlay) ? 'inline-flex' : 'none';
@@ -1901,7 +1981,24 @@
    * ---------------------------------------------------------------- */
   function bindInput() {
     document.addEventListener('keydown', function (e) {
-      if (e.target === el.search && e.keyCode !== 27 && e.keyCode !== 8) return;
+      // Los campos de formulario (alta manual, selects) deben recibir sus
+      // teclas normales. Antes, el manejador global se comia letras y
+      // Backspace y era imposible escribir un TMDB ID con el mando.
+      var tgt = e.target;
+      var tag = tgt && tgt.tagName ? String(tgt.tagName).toUpperCase() : '';
+      var formField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' ||
+                      !!(tgt && tgt.isContentEditable);
+      if (formField && tgt !== el.search) {
+        if (e.keyCode === 27) {
+          var addOv = $('addTitleOverlay');
+          if (addOv && addOv.style.display !== 'none') { closeAddTitle(); e.preventDefault(); }
+        }
+        return;
+      }
+
+      // El buscador conserva el BACK del mando para cerrar; el resto de
+      // teclas (letras, borrar con el teclado en pantalla) son suyas.
+      if (tgt === el.search && e.keyCode !== 27 && e.keyCode !== 8) return;
 
       // En el reproductor, cualquier tecla vuelve a mostrar la barra de
       // controles (que se oculta sola) para que no se pierdan las opciones.
@@ -2134,6 +2231,9 @@
   function bindTabs() {
     el.tabCatalog.addEventListener('click', function () { showScreen('catalog'); });
     el.tabGuide.addEventListener('click', function () { showScreen('guide'); });
+    if (!(CONFIG.epg && CONFIG.epg.enabled)) {
+      el.tabGuide.style.display = 'none';
+    }
   }
 
   function bindQuickNav() {
@@ -2158,7 +2258,9 @@
 
   function detailGenresList(item) {
     var out = [];
-    var parts = String(item.description || '').split(' · ');
+    var raw = item.genres || item.description || '';
+    if (Object.prototype.toString.call(raw) === '[object Array]') raw = raw.join(' · ');
+    var parts = String(raw).split(' · ');
     for (var i = 0; i < parts.length; i++) {
       var g = parts[i];
       if (!g || /^fuente:/i.test(g)) continue;
@@ -2232,13 +2334,122 @@
       }
     }
 
-    // En el catálogo de NasriPlay la descripción de las películas son los
-    // géneros, no una sinopsis: no la mostramos como resumen.
-    var desc = isSeries && item.description && !/^fuente:/i.test(item.description)
-      ? item.description : '';
+    // `overview` es la sinopsis real. En el catálogo antiguo de NasriPlay
+    // las series traían la sinopsis en `description`; en películas esa
+    // descripción son los géneros, por eso solo se usa como respaldo.
+    var desc = item.overview || '';
+    if (!desc && isSeries && item.description && !item.genres &&
+        !/^fuente:/i.test(item.description)) {
+      desc = item.description;
+    }
     if ($('detailOverview')) {
       $('detailOverview').textContent = desc || (isSeries ? 'Cargando sinopsis…' : 'Sin sinopsis disponible.');
     }
+  }
+
+  /** Lee un parámetro de la URL sin depender de URLSearchParams (TV viejos). */
+  function queryParam(name) {
+    var m = new RegExp('[?&]' + name + '=([^&]*)', 'i').exec(window.location.search || '');
+    if (!m) return '';
+    try { return decodeURIComponent(m[1] || ''); } catch (e) { return m[1] || ''; }
+  }
+
+  function findCatalogItem(id, kind) {
+    if (!id) return null;
+    var want = '';
+    if (kind === 'series' || kind === 'tv') want = 'series';
+    else if (kind === 'movie' || kind === 'vod') want = 'movie';
+    function sameKind(it) {
+      if (!want) return true;
+      var k = (it.kind === 'series' || it.kind === 'tv') ? 'series' : 'movie';
+      return k === want;
+    }
+    var direct = state.byId && state.byId[id];
+    if (direct && sameKind(direct)) return direct;
+    var lists = [state.items, state.allItems, state.catalogAll];
+    for (var l = 0; l < lists.length; l++) {
+      var arr = lists[l] || [];
+      for (var i = 0; i < arr.length; i++) {
+        if ((String(arr[i].id) === String(id) ||
+             String(arr[i].tmdbId || '') === String(id)) && sameKind(arr[i])) {
+          return arr[i];
+        }
+      }
+    }
+    return null;
+  }
+
+  function fetchTmdbDeepLink(type, id) {
+    var t = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
+    return fetch('/api/tmdb?action=details&type=' + t + '&id=' + encodeURIComponent(id))
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d || {} }; }); });
+  }
+
+  function openDeepLinkDetail(data, type, fallbackId) {
+    if (!data || data.error || !data.title) return false;
+    var isSeries = (type === 'tv' || type === 'series');
+    openDetail({
+      id: String(data.id || fallbackId),
+      tmdbId: String(data.id || fallbackId),
+      title: data.title,
+      kind: isSeries ? 'series' : 'movie',
+      poster: data.poster || '',
+      year: data.year || '',
+      rating: data.rating || '',
+      description: data.overview || '',
+      overview: data.overview || '',
+      genres: data.genres || ''
+    });
+    return true;
+  }
+
+  /**
+   * Enlaces compartidos: ?play=<id>&src=embeds&kind=movie|series.
+   * En TV en vivo reproduce el canal; en VOD abre la ficha, aunque el
+   * título no esté en las primeras páginas del catálogo (usa TMDB).
+   */
+  function maybeOpenDeepLink() {
+    if (state.deepLinkDone) return false;
+    var id = queryParam('play');
+    if (!id) return false;
+    state.deepLinkDone = true;
+
+    if (!isEmbedsMode()) {
+      var live = findCatalogItem(id);
+      if (live) { playItem(live); return true; }
+      return false;
+    }
+
+    var kind = catalogKind();
+    var hasKind = /[?&]kind=/.test(window.location.search || '');
+    var isSeries = kind === 'series';
+    var kindFilter = (hasKind && kind !== 'novelties') ? (isSeries ? 'series' : 'movie') : '';
+    var found = findCatalogItem(id, kindFilter);
+    if (found) { openDetail(found); return true; }
+
+    var lookup = queryParam('tmdb') || id;
+    var firstType = isSeries ? 'tv' : 'movie';
+    fetchTmdbDeepLink(firstType, lookup)
+      .then(function (res) {
+        if (res && res.ok && res.d && !res.d.error && res.d.title) {
+          openDeepLinkDetail(res.d, firstType, lookup);
+          return;
+        }
+        // Enlaces antiguos sin &kind=: probar el otro tipo antes de fallar.
+        if (!/[?&]kind=/.test(window.location.search || '')) {
+          var altType = isSeries ? 'movie' : 'tv';
+          return fetchTmdbDeepLink(altType, lookup).then(function (res2) {
+            if (res2.ok && res2.d && !res2.d.error && res2.d.title) {
+              openDeepLinkDetail(res2.d, altType, lookup);
+            } else {
+              toast('No se pudo abrir el título compartido.');
+            }
+          });
+        }
+        toast('No se pudo abrir el título compartido.');
+      })
+      .catch(function () { toast('No se pudo abrir el título compartido.'); });
+    return true;
   }
 
   function openDetail(item) {
@@ -2299,10 +2510,13 @@
           var yEl = $('detailYear');
           if (yEl) yEl.textContent = data.year;
         }
+        if (data.overview) item.overview = data.overview;
         if (data.genres) {
+          item.genres = data.genres;
           item.description = data.genres;
-          fillDetailTech(item, false, { year: data.year || item.year });
         }
+        fillDetailHero(item);
+        fillDetailTech(item, false, { year: data.year || item.year });
       })
       .catch(function () {});
   }
@@ -2329,10 +2543,13 @@
           var bi = $('detailBackdrop');
           if (bi) { bi.src = data.backdrop || data.poster; bi.style.display = 'block'; }
         }
+        if (data.overview) item.overview = data.overview;
         if (data.genres) {
-          var gEl = $('detailGenres');
-          if (gEl) gEl.textContent = data.genres;
+          item.genres = data.genres;
+          item.description = data.genres;
         }
+        fillDetailHero(item);
+        fillDetailTech(item, true, { seasons: (data.seasons || []).length });
         var seasons = data.seasons || [];
         var norm = [];
         for (var i = 0; i < seasons.length; i++) {
@@ -2397,8 +2614,9 @@
         seriesOverlayState.currentSeason = norm[0].number;
 
         // Completa la ficha con los metadatos de la API.
-        if (data.synopsis && $('detailOverview')) {
-          $('detailOverview').textContent = data.synopsis;
+        if (data.synopsis) {
+          item.overview = data.synopsis;
+          if ($('detailOverview')) $('detailOverview').textContent = data.synopsis;
         }
         if (data.poster && !item.poster) {
           item.poster = data.poster;
@@ -2638,6 +2856,46 @@
     }
   }
 
+  /**
+   * Ajusta la UI según el tipo de stream actual. En un iframe (vidsrc,
+   * vidlink, vimeus) no se puede controlar el audio ni el aspect ratio desde
+   * fuera, y conviene ofrecer "Abrir en pestaña" por si la publicidad tapa
+   * el video o su botón de cerrar.
+   */
+  function updatePlayerMode() {
+    var embed = false;
+    try {
+      var streams = player ? player.getStreams() : [];
+      var cur = player ? player.getCurrent() : 0;
+      embed = !!(streams[cur] && Player.isEmbedUrl(streams[cur].url));
+    } catch (e) { embed = false; }
+
+    if (el.playerUI) {
+      if (embed) el.playerUI.classList.add('embed-current');
+      else el.playerUI.classList.remove('embed-current');
+    }
+    if (el.btnOpenEmbed) {
+      el.btnOpenEmbed.style.display = (isEmbedsMode() && embed) ? 'inline-flex' : 'none';
+    }
+  }
+
+  function openCurrentEmbed() {
+    if (!player) return;
+    var streams = player.getStreams();
+    var cur = player.getCurrent();
+    var s = streams[cur];
+    if (!s || !Player.isEmbedUrl(s.url)) {
+      toast('Este servidor no se puede abrir en otra pestaña.');
+      return;
+    }
+    var win = window.open(s.url, '_blank');
+    if (win) {
+      try { win.opener = null; } catch (e) {}
+    } else {
+      toast('El navegador bloqueó la pestaña. Permite las ventanas emergentes.');
+    }
+  }
+
   function updateServerActive() {
     var list = $('serverList');
     if (!list || !player) return;
@@ -2669,7 +2927,9 @@
         var s = streams[idx] || {};
         var isDirect = !Player.isEmbedUrl(s.url);
         var label = s.label || ('Servidor ' + (idx + 1));
-        var tag = /latino|\blat\b/i.test(label) ? 'Latino' : (isDirect ? 'Directo' : 'Embed');
+        var isPublicEmbed = /vidsrc|vidlink|vimeus/i.test(label);
+        var tag = /latino|\blat\b/i.test(label) ? 'Latino'
+                : (isPublicEmbed ? 'Con anuncios' : (isDirect ? 'Directo' : 'Embed'));
         var row = document.createElement('button');
         row.className = 'serverBtn';
         row.setAttribute('tabindex', '0');

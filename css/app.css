@@ -1061,12 +1061,14 @@ body.font-xl { font-size: 130%; }
 .quickNav .qn.active .qnIcon { color: #60a5fa; }
 .quickNav .qn:focus { outline: 2px solid #60a5fa; outline-offset: 2px; }
 
-/* En modo embeds (peliculas/series) la busqueda de canales no tiene
-   sentido: se oculta el panel y los botones que la abren. */
-body.embeds-mode .searchPanel { display: none !important; }
+/* En modo embeds (peliculas/series) no hay canales en directo, pero el
+   buscador sí sirve para filtrar el catálogo VOD. Se ocultan solo los
+   controles exclusivos de TV en vivo. */
 body.embeds-mode .onAir { display: none !important; }
-body.embeds-mode #btnOpenSearch,
 body.embeds-mode #btnSearch { display: none !important; }
+body.embeds-mode .quickFilters { display: none; }
+body.embeds-mode #btnProxy { display: none !important; }
+body.embeds-mode #tabGuide { display: none !important; }
 
 /* ---- Responsive de la barra ---- */
 @media (max-width: 1100px) {
@@ -1588,11 +1590,28 @@ body.embeds-mode #btnSearch { display: none !important; }
    en 0 px; se oia el audio pero no se veia la imagen. */
 #playerScreen.vod .playerStage {
   position: relative;
+  width: 100%;
   height: 56.25vw;
   max-height: 78vh;
-  max-width: 100%;
+  /* Si el alto se limita a 78vh, el ancho debe limitarse en la misma
+     proporción. Sin esto el stage queda en 2.28:1 y los anuncios de
+     vidsrc/vidlink recortan su botón de cerrar por la parte de abajo. */
+  max-width: 138.6vh; /* 78vh * 16 / 9 */
   margin: 0 auto;
   overflow: hidden;
+  background: #000;
+}
+
+/* Pantalla completa real del stage: al fullscreenear el documento el
+   stage seguía limitado por 78vh y el anuncio seguía cortado. */
+#playerStage:fullscreen,
+#playerStage:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  background: #000;
 }
 #playerScreen.vod #video {
   position: absolute;
@@ -1616,7 +1635,7 @@ body.embeds-mode #btnSearch { display: none !important; }
 }
 #playerScreen.vod.has-episodes .playerEpisodePanel { position: relative; z-index: 1; }
 @media (max-height: 760px) {
-  #playerScreen.vod .playerStage { max-height: 56vh; }
+  #playerScreen.vod .playerStage { max-height: 56vh; max-width: 99.6vh; }
 }
 #playerScreen.vod .overlay {
   top: 0; bottom: auto;
@@ -1633,6 +1652,10 @@ body.embeds-mode #btnSearch { display: none !important; }
 #playerScreen.vod .pbtn-info,
 #playerScreen.vod .pbtn-copy,
 #playerScreen.vod .pbtn-share { display: none; }
+/* Con un iframe no se puede controlar el audio ni el aspect ratio desde
+   fuera: se ocultan para que no parezca que los botones están rotos. */
+#playerScreen.vod.embed-current .pbtn-mute,
+#playerScreen.vod.embed-current .pbtn-aspect { display: none; }
 .playerEpisodePanel {
   display: none;
   max-width: 1120px;
@@ -1839,4 +1862,674 @@ body.embeds-mode #btnSearch { display: none !important; }
   .tally .lamp { animation: none; }
   .card.focused .thumb { transform: none; }
   .scrollHint .scrollHintArrow { animation: none; }
+}
+
+/* ===================================================================
+   TEMA CLARO PREMIUM — blanco tipo Apple
+   -------------------------------------------------------------------
+   La app sigue funcionando en televisores antiguos: los degradados y
+   los filtros son mejoras progresivas; si el motor no los soporta,
+   queda un fondo blanco/gris solido y legible.
+   =================================================================== */
+body.tema-claro {
+  --void:   #f5f5f7;
+  --deck:   rgba(255, 255, 255, .86);
+  --deck2:  #f5f5f7;
+  --rule:   #e5e5ea;
+  --ice:    #0071e3;
+  --iceD:   #0077ed;
+  --signal: #ff3b30;
+  --paper:  #1d1d1f;
+  --muted:  #6e6e73;
+
+  background-color: #f5f5f7;
+  background-image:
+    radial-gradient(1100px 560px at 14% -12%, rgba(0, 113, 227, .07), transparent 62%),
+    radial-gradient(900px 520px at 88% -18%, rgba(175, 82, 222, .05), transparent 60%);
+  color: #1d1d1f;
+  color-scheme: light;
+}
+
+body.tema-claro,
+body.tema-claro button,
+body.tema-claro input,
+body.tema-claro select,
+body.tema-claro textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+               "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+}
+
+body.tema-claro ::selection { background: rgba(0, 113, 227, .18); color: #1d1d1f; }
+
+body.tema-claro ::-webkit-scrollbar { width: 10px; height: 10px; }
+body.tema-claro ::-webkit-scrollbar-track { background: transparent; }
+body.tema-claro ::-webkit-scrollbar-thumb {
+  background: #d2d2d7; border: 3px solid #f5f5f7; border-radius: 999px;
+}
+body.tema-claro { scrollbar-color: #d2d2d7 transparent; }
+
+/* ---------------- Banda superior ---------------- */
+body.tema-claro .band {
+  background: rgba(255, 255, 255, .82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, .08);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset;
+}
+body.tema-claro .btnBandFavs {
+  background: #fff8e8;
+  border-color: #f0dfb8;
+  color: #8a5a00;
+}
+body.tema-claro .btnBandFavs:hover {
+  background: #fff3d6; border-color: #e8c98d; color: #6b4500;
+}
+body.tema-claro .btnBandFavs:focus {
+  outline: none; box-shadow: 0 0 0 3px rgba(183, 121, 31, .28);
+}
+body.tema-claro .favBandIcon { color: #b7791f; }
+body.tema-claro .favBadge { background: #f4e3bd; color: #6b4500; }
+
+body.tema-claro .tally {
+  background: rgba(255, 255, 255, .7);
+  border-color: #e5e5ea;
+}
+body.tema-claro .tally:hover { border-color: #d2d2d7; background: #fff; }
+body.tema-claro .tally:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .28); }
+body.tema-claro .tallyText { color: #1d1d1f; }
+body.tema-claro .tally .lamp { box-shadow: 0 0 8px rgba(255, 59, 48, .55); }
+
+body.tema-claro .onAirList { color: #6e6e73; }
+body.tema-claro .onAirList .sonando { color: #1d1d1f; }
+
+body.tema-claro .icon {
+  background: rgba(255, 255, 255, .72);
+  border-color: #e5e5ea;
+  color: #6e6e73;
+  border-radius: 10px;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+body.tema-claro .icon:hover { background: #fff; color: #1d1d1f; border-color: #d2d2d7; }
+body.tema-claro .icon:focus,
+body.tema-claro .icon.focused {
+  outline: none;
+  background: #0071e3;
+  border-color: #0071e3;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .24);
+}
+
+body.tema-claro .proxyBtn {
+  background: rgba(255, 255, 255, .72);
+  border-color: #e5e5ea;
+  color: #6e6e73;
+  border-radius: 10px;
+}
+body.tema-claro .proxyBtn .proxyDot { background: #c7c7cc; box-shadow: 0 0 0 2px rgba(199, 199, 204, .28); }
+body.tema-claro .proxyBtn:hover { background: #fff; color: #1d1d1f; border-color: #d2d2d7; }
+body.tema-claro .proxyBtn:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+body.tema-claro .proxyBtn.on {
+  background: #fff4e5; border-color: #f0b429; color: #7a4d00;
+  box-shadow: 0 0 0 2px rgba(240, 180, 41, .16);
+}
+body.tema-claro .proxyBtn.on .proxyDot { background: #b7791f; box-shadow: none; }
+
+body.tema-claro .clock { color: #1d1d1f; }
+body.tema-claro .clock small { color: #86868b; }
+
+body.tema-claro .quickNav {
+  background: rgba(238, 238, 240, .9);
+  border-color: #e5e5ea;
+  border-radius: 14px;
+}
+body.tema-claro .quickNav .qn { color: #6e6e73; border-radius: 10px; }
+body.tema-claro .quickNav .qnIcon { color: #0071e3; }
+body.tema-claro .quickNav .qn:hover { color: #1d1d1f; background: rgba(255, 255, 255, .8); }
+body.tema-claro .quickNav .qn:focus {
+  outline: none; color: #1d1d1f; background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .24);
+}
+body.tema-claro .quickNav .qn.active {
+  color: #fff; background: #1d1d1f; border-color: #1d1d1f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .16);
+}
+body.tema-claro .quickNav .qn.active .qnIcon { color: #fff; }
+
+/* ---------------- Buscador ---------------- */
+body.tema-claro .searchPanel {
+  background: rgba(255, 255, 255, .94);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid #e5e5ea;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .08);
+}
+body.tema-claro .search {
+  background: #f5f5f7;
+  border-color: #e5e5ea;
+  color: #1d1d1f;
+  border-radius: 12px;
+}
+body.tema-claro .search:focus {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18);
+}
+body.tema-claro .search::placeholder { color: #86868b; }
+body.tema-claro .searchCount { color: #0071e3; }
+body.tema-claro .searchCloseBtn {
+  background: #f5f5f7; border-color: #e5e5ea; color: #6e6e73;
+  border-radius: 12px;
+}
+body.tema-claro .searchCloseBtn:hover { background: #ececef; color: #1d1d1f; }
+body.tema-claro .searchCloseBtn:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+body.tema-claro .searchVoiceBtn { background: #f5f5f7; border-color: #e5e5ea; color: #6e6e73; }
+body.tema-claro .searchVoiceBtn:hover { background: #ececef; color: #1d1d1f; }
+body.tema-claro .quickFilters .qf {
+  background: #fff; border-color: #e5e5ea; color: #6e6e73;
+}
+body.tema-claro .quickFilters .qf:hover { background: #f5f5f7; color: #1d1d1f; border-color: #d2d2d7; }
+body.tema-claro .quickFilters .qf.on { background: #1d1d1f; border-color: #1d1d1f; color: #fff; }
+body.tema-claro .quickFilters .qf:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+
+/* ---------------- Estanterias y tarjetas ---------------- */
+body.tema-claro .rows { padding: 24px 28px 34px; }
+body.tema-claro .shelf { margin-bottom: 28px; }
+body.tema-claro .shelfhead h2 {
+  color: #1d1d1f; font-size: 20px; font-weight: 700; letter-spacing: -.02em;
+}
+body.tema-claro .shelfhead em { color: #86868b; font-style: normal; }
+body.tema-claro .ttl { color: #1d1d1f; }
+body.tema-claro .onair { color: #86868b; }
+body.tema-claro .thumb {
+  background: #e8e8ed;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 6px 16px rgba(0, 0, 0, .06);
+}
+body.tema-claro .thumb.blank { background: linear-gradient(150deg, #f5f5f7, #e2e2e7); }
+body.tema-claro .card.verticalCard { border-radius: 16px; }
+body.tema-claro .card.verticalCard:hover,
+body.tema-claro .card.verticalCard.focused {
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .10);
+}
+body.tema-claro .card.focused .thumb,
+body.tema-claro .card:focus .thumb {
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .26), 0 12px 28px rgba(0, 0, 0, .12);
+}
+body.tema-claro .badge {
+  background: rgba(255, 255, 255, .92);
+  color: #1d1d1f;
+  border: 1px solid rgba(0, 0, 0, .06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+body.tema-claro .badge.vod { background: #e8f2ff; color: #005bb5; }
+body.tema-claro .btnMas {
+  background: #fff; border-color: #e5e5ea; color: #1d1d1f;
+}
+body.tema-claro .btnMas:hover { background: #f5f5f7; border-color: #d2d2d7; }
+body.tema-claro .btnMas:focus, body.tema-claro .btnMas.focused {
+  outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24);
+}
+body.tema-claro .btnMasFlecha { color: #0071e3; }
+body.tema-claro .btnMasCount { color: #86868b; }
+body.tema-claro .scrollHint {
+  background: rgba(255, 255, 255, .96);
+  border-color: #e5e5ea;
+  color: #1d1d1f;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .12);
+}
+body.tema-claro .scrollHint:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+
+/* ---------------- Catalogo VOD ---------------- */
+body.tema-claro .catalogHead h1 {
+  color: #1d1d1f; text-transform: none; letter-spacing: -.03em; font-weight: 700;
+  border-left-color: #0071e3;
+}
+body.tema-claro .catalogCount, body.tema-claro .catalogSub { color: #86868b; }
+body.tema-claro .filterGroup h3 { color: #86868b; }
+body.tema-claro .chip {
+  background: #fff; border-color: #e5e5ea; color: #6e6e73;
+}
+body.tema-claro .chip:hover { border-color: #d2d2d7; color: #1d1d1f; }
+body.tema-claro .chip.active {
+  background: #1d1d1f; border-color: #1d1d1f; color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .16);
+}
+body.tema-claro .chip:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+body.tema-claro .posterFrame {
+  background: #e8e8ed;
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 20px rgba(0, 0, 0, .07);
+}
+body.tema-claro .posterCard:hover .posterFrame,
+body.tema-claro .posterCard.focused .posterFrame {
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .28), 0 16px 34px rgba(0, 0, 0, .14);
+}
+body.tema-claro .pRate, body.tema-claro .pQual {
+  background: rgba(255, 255, 255, .94); color: #1d1d1f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+}
+body.tema-claro .pRate { color: #9a6700; }
+body.tema-claro .pKind { background: #0071e3; color: #fff; }
+body.tema-claro .pNew { background: #ffd60a; color: #1d1d1f; }
+body.tema-claro .pOverlay {
+  background: linear-gradient(to top, rgba(255, 255, 255, .98) 0%, rgba(255, 255, 255, .88) 38%, rgba(255, 255, 255, 0) 78%);
+}
+body.tema-claro .pOverlay h3 { color: #1d1d1f; }
+body.tema-claro .pOverlay .pMeta { color: #6e6e73; }
+body.tema-claro .pOverlay .pDesc { color: #6e6e73; }
+body.tema-claro .pTitle { color: #6e6e73; }
+body.tema-claro .posterCard:hover .pTitle, body.tema-claro .posterCard.focused .pTitle { color: #1d1d1f; }
+body.tema-claro .catalogEmpty { color: #86868b; }
+body.tema-claro .posterCard.liveCard .posterFrame {
+  background: radial-gradient(circle at 50% 38%, #ffffff 0%, #eeeef0 72%);
+}
+body.tema-claro .chanBg { background: linear-gradient(160deg, rgba(0, 113, 227, .06), rgba(255, 255, 255, .6)); }
+body.tema-claro .chanLogo { filter: drop-shadow(0 0 6px rgba(255, 255, 255, .9)) drop-shadow(0 2px 5px rgba(0, 0, 0, .25)); }
+body.tema-claro .chanInitials { color: #0071e3; }
+body.tema-claro .catalogMore {
+  background: #fff; border-color: #e5e5ea; color: #1d1d1f;
+}
+body.tema-claro .catalogMore:hover, body.tema-claro .catalogMore:focus,
+body.tema-claro .catalogMore.focused {
+  background: #1d1d1f; border-color: #1d1d1f; color: #fff;
+}
+body.tema-claro .catalogMore .btnMasCount { color: #86868b; }
+body.tema-claro .catalogMore:hover .btnMasCount,
+body.tema-claro .catalogMore:focus .btnMasCount,
+body.tema-claro .catalogMore.focused .btnMasCount { color: rgba(255, 255, 255, .7); }
+
+/* Scroll mas fluido en listas largas sin cambiar el layout. */
+body.tema-claro .posterCard { content-visibility: auto; contain-intrinsic-size: 260px 420px; }
+
+/* ---------------- Detalle de pelicula / serie ---------------- */
+body.tema-claro .detailScreen {
+  background: #f5f5f7;
+  scrollbar-color: #d2d2d7 transparent;
+}
+body.tema-claro .detailHeroBg img {
+  opacity: .34;
+  filter: blur(30px) saturate(1.12);
+}
+body.tema-claro .detailHeroShade {
+  background:
+    linear-gradient(to top, #f5f5f7 2%, rgba(245, 245, 247, .92) 36%, rgba(245, 245, 247, .42) 78%, rgba(245, 245, 247, .62) 100%),
+    linear-gradient(to right, rgba(245, 245, 247, .92) 0%, rgba(245, 245, 247, .12) 64%, rgba(245, 245, 247, .48) 100%);
+}
+body.tema-claro .detailBack {
+  background: rgba(255, 255, 255, .84);
+  border-color: rgba(0, 0, 0, .08);
+  color: #1d1d1f;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .06);
+}
+body.tema-claro .detailBack:hover,
+body.tema-claro .detailBack:focus {
+  border-color: #0071e3; color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18);
+}
+body.tema-claro .detailPoster {
+  background: #e8e8ed;
+  border: 4px solid #fff;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, .20);
+}
+body.tema-claro .detailQuality {
+  background: rgba(255, 255, 255, .94);
+  color: #1d1d1f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .14);
+}
+body.tema-claro .detailTitle {
+  color: #1d1d1f;
+  text-shadow: none;
+  letter-spacing: -.035em;
+  font-weight: 700;
+}
+body.tema-claro .detailMeta { color: #6e6e73; }
+body.tema-claro .detailRating { color: #9a6700; }
+body.tema-claro .detailVotes, body.tema-claro .detailCounts { color: #86868b; }
+body.tema-claro .detailGenres .genreChip {
+  background: rgba(255, 255, 255, .8);
+  border-color: rgba(0, 0, 0, .08);
+  color: #6e6e73;
+}
+body.tema-claro .detailPlay {
+  background: #0071e3;
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 10px 26px rgba(0, 113, 227, .28);
+}
+body.tema-claro .detailPlay:hover,
+body.tema-claro .detailPlay:focus {
+  background: #0077ed;
+  filter: none;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .22), 0 14px 30px rgba(0, 113, 227, .30);
+}
+body.tema-claro .detailCard {
+  background: #fff;
+  border-color: rgba(0, 0, 0, .07);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 8px 24px rgba(0, 0, 0, .04);
+}
+body.tema-claro .detailCard h2 { color: #1d1d1f; }
+body.tema-claro .detailCard h2::before { background: #0071e3; }
+body.tema-claro .detailCard p { color: #6e6e73; }
+body.tema-claro .detailHint { color: #86868b !important; }
+body.tema-claro .detailTech dt { color: #86868b; }
+body.tema-claro .detailTech dd { color: #1d1d1f; }
+body.tema-claro .castCard {
+  background: #fbfbfd;
+  border-color: rgba(0, 0, 0, .06);
+}
+body.tema-claro .castCard img { background: #e8e8ed; }
+body.tema-claro .castCard b { color: #1d1d1f; }
+body.tema-claro .castCard span { color: #86868b; }
+
+body.tema-claro .seasonTabs { border-bottom-color: #e5e5ea; }
+body.tema-claro .seasonTab {
+  background: #fff;
+  border-color: #e5e5ea;
+  color: #6e6e73;
+  border-radius: 999px;
+}
+body.tema-claro .seasonTab:hover { border-color: #d2d2d7; color: #1d1d1f; }
+body.tema-claro .seasonTab.active {
+  background: #1d1d1f; border-color: #1d1d1f; color: #fff;
+}
+body.tema-claro .seasonTab:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); }
+body.tema-claro .episodeCard {
+  background: #fff;
+  border-color: #e5e5ea;
+  border-radius: 14px;
+}
+body.tema-claro .episodeCard:hover,
+body.tema-claro .episodeCard:focus {
+  border-color: #d2d2d7;
+  background: #fbfbfd;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .16);
+}
+body.tema-claro .episodeCard.active {
+  border-color: #0071e3;
+  background: #e8f2ff;
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, .28);
+}
+body.tema-claro .episodeCard .epNum {
+  background: #e8f2ff; color: #005bb5;
+}
+body.tema-claro .episodeCard .epName { color: #1d1d1f; }
+
+/* ---------------- Guia de TV / EPG ---------------- */
+body.tema-claro .guideHeader {
+  background: rgba(255, 255, 255, .9);
+  border-bottom: 1px solid #e5e5ea;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+body.tema-claro .guideTitle { color: #1d1d1f; }
+body.tema-claro .guideCloseBtn {
+  background: #fff; border-color: #e5e5ea; color: #6e6e73;
+}
+body.tema-claro .guideCloseBtn:hover { color: #d70015; border-color: #ffd1d1; background: #fff5f5; }
+body.tema-claro .guideCloseBtn:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24); color: #1d1d1f; }
+body.tema-claro .epg { background: #f5f5f7; }
+body.tema-claro .epg-nav {
+  background: #fff; border-color: #e5e5ea; color: #6e6e73; border-radius: 10px;
+}
+body.tema-claro .epg-nav:hover { background: #fbfbfd; color: #1d1d1f; }
+body.tema-claro .epg-nav:focus { outline: none; background: #0071e3; border-color: #0071e3; color: #fff; }
+body.tema-claro .epg-range { color: #86868b; }
+body.tema-claro .epg-labels { border-right-color: #e5e5ea; background: #fff; }
+body.tema-claro .epg-label { border-bottom-color: #ececef; }
+body.tema-claro .epg-label.focused { background: #e8f2ff; }
+body.tema-claro .epg-logoname { color: #1d1d1f; }
+body.tema-claro .epg-label.focused .epg-logoname { color: #005bb5; }
+body.tema-claro .epg-now { color: #86868b; }
+body.tema-claro .epg-axis { border-bottom-color: #e5e5ea; background: #fff; }
+body.tema-claro .epg-slot { color: #86868b; border-left-color: #ececef; }
+body.tema-claro .epg-row { border-bottom-color: #ececef; }
+body.tema-claro .epg-prog {
+  background: #fff;
+  border: 1px solid #e5e5ea;
+  border-left: 3px solid #0071e3;
+  border-radius: 8px;
+}
+body.tema-claro .epg-prog b { color: #1d1d1f; }
+body.tema-claro .epg-prog i { color: #86868b; }
+body.tema-claro .epg-prog.now { background: #e8f2ff; }
+body.tema-claro .epg-prog.sel {
+  border-left-color: #0071e3;
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, .4), 0 4px 12px rgba(0, 0, 0, .06);
+}
+body.tema-claro .epg-needle { background: #ff3b30; }
+body.tema-claro .epg-empty { color: #86868b; }
+body.tema-claro .epg-empty code {
+  background: #fff; border-color: #e5e5ea; color: #005bb5;
+}
+
+/* ---------------- Reproductor ---------------- */
+body.tema-claro #playerScreen.vod {
+  background: #f5f5f7;
+  scrollbar-color: #d2d2d7 transparent;
+}
+body.tema-claro #playerScreen.vod .playerStage {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .14);
+}
+body.tema-claro #playerScreen.vod.has-episodes .playerStage {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .18);
+}
+body.tema-claro #playerScreen .overlay {
+  background: rgba(255, 255, 255, .9);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, .08);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, .10);
+}
+body.tema-claro #playerScreen.vod .overlay {
+  background: rgba(255, 255, 255, .9);
+  border-top: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, .08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .10);
+}
+body.tema-claro .nowTitle { color: #1d1d1f; text-shadow: none; }
+body.tema-claro .status { color: #6e6e73; }
+body.tema-claro .status.error { color: #d70015; }
+body.tema-claro .quality { color: #0071e3; }
+body.tema-claro .q {
+  background: #f5f5f7; border-color: #e5e5ea; color: #6e6e73;
+}
+body.tema-claro .q:hover { background: #fff; color: #1d1d1f; }
+body.tema-claro .q.active, body.tema-claro .q:focus {
+  background: #0071e3; border-color: #0071e3; color: #fff;
+}
+
+body.tema-claro .pbtn {
+  background: rgba(245, 245, 247, .92);
+  border-color: #e5e5ea;
+  color: #1d1d1f;
+  border-radius: 12px;
+}
+body.tema-claro .pbtn:hover {
+  background: #fff; border-color: #d2d2d7; color: #1d1d1f;
+}
+body.tema-claro .pbtn:focus,
+body.tema-claro .pbtn.focused {
+  outline: none;
+  background: #0071e3; border-color: #0071e3; color: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .24);
+}
+body.tema-claro .pbtn.pbtn-danger {
+  background: #fff1f1; border-color: #ffd1d1; color: #d70015;
+}
+body.tema-claro .pbtn.pbtn-danger:hover { background: #ffe2e2; border-color: #ffb3b3; }
+body.tema-claro .pbtn.pbtn-fav {
+  background: #fff8e8; border-color: #f0dfb8; color: #8a5a00;
+}
+body.tema-claro .pbtn.pbtn-fav.active,
+body.tema-claro .pbtn.pbtn-fav.active .pbtnIcon { color: #b7791f; }
+body.tema-claro .pbtn.pbtn-mute.muted {
+  background: #e8f2ff; border-color: #b9d8ff; color: #005bb5;
+}
+body.tema-claro .pbtn.pbtn-fs { background: #0071e3; border-color: #0071e3; color: #fff; }
+body.tema-claro .pbtn.pbtn-fs:hover { background: #005bb5; border-color: #005bb5; }
+body.tema-claro .pbtn.pbtn-fs:focus { background: #005bb5; border-color: #005bb5; }
+body.tema-claro .pbtn.pbtn-servers { background: #e8f2ff; border-color: #cfe4ff; color: #005bb5; }
+body.tema-claro .pbtn.pbtn-open { background: #fff8e8; border-color: #f0dfb8; color: #8a5a00; }
+
+body.tema-claro .stoppedMsg {
+  background: rgba(255, 255, 255, .94);
+  border-color: #e5e5ea;
+  color: #1d1d1f;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .12);
+}
+body.tema-claro .stoppedMsg b { color: #1d1d1f; }
+body.tema-claro .hint { color: #86868b; }
+body.tema-claro .toast {
+  background: rgba(255, 255, 255, .96);
+  color: #1d1d1f;
+  border: 1px solid #e5e5ea;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .14);
+}
+
+/* Panel de capitulos del reproductor VOD */
+body.tema-claro .peNav {
+  background: #fff;
+  border-color: #e5e5ea;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .05);
+}
+body.tema-claro .peScrollBtn {
+  background: #f5f5f7; border-color: #e5e5ea; color: #6e6e73; border-radius: 10px;
+}
+body.tema-claro .peScrollBtn:hover { background: #fff; color: #1d1d1f; }
+body.tema-claro .peScrollBtn:focus {
+  outline: none; background: #0071e3; border-color: #0071e3; color: #fff;
+}
+body.tema-claro .peNavBtn {
+  background: #f5f5f7; border-color: #e5e5ea; color: #1d1d1f; border-radius: 10px;
+}
+body.tema-claro .peNavBtn:hover, body.tema-claro .peNavBtn:focus {
+  background: #fff; border-color: #d2d2d7; color: #1d1d1f;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18);
+}
+body.tema-claro .peNow b { color: #1d1d1f; }
+body.tema-claro .peNow span { color: #86868b; }
+body.tema-claro .peSelector {
+  background: #fff;
+  border-color: #e5e5ea;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 8px 24px rgba(0, 0, 0, .04);
+}
+body.tema-claro .peSelector h3 { color: #1d1d1f; }
+body.tema-claro .peSub { color: #86868b; }
+body.tema-claro .peSeasonTitle { color: #86868b; }
+body.tema-claro .peItem {
+  background: #fbfbfd;
+  border-color: #e5e5ea;
+  border-radius: 12px;
+}
+body.tema-claro .peItem:hover, body.tema-claro .peItem:focus, body.tema-claro .peItem.active {
+  background: #e8f2ff; border-color: #0071e3;
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, .24);
+}
+body.tema-claro .peItem .peNum { background: #e8f2ff; color: #005bb5; }
+body.tema-claro .peItem .peName { color: #1d1d1f; }
+body.tema-claro .peItem .pePlay { color: #0071e3; }
+
+/* ---------------- Selector de servidor ---------------- */
+body.tema-claro .serverPanel {
+  background: rgba(245, 245, 247, .72);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+}
+body.tema-claro .serverBox {
+  background: rgba(255, 255, 255, .98);
+  border-color: #e5e5ea;
+  border-top-color: #0071e3;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .20);
+}
+body.tema-claro .serverBox h3 { color: #1d1d1f; letter-spacing: -.02em; }
+body.tema-claro .serverSub { color: #6e6e73; }
+body.tema-claro .serverBtn {
+  background: #fbfbfd;
+  border-color: #e5e5ea;
+  color: #1d1d1f;
+  border-radius: 12px;
+}
+body.tema-claro .serverBtn .sTag {
+  background: #e8f2ff; border-color: #cfe4ff; color: #005bb5;
+}
+body.tema-claro .serverBtn .sNow { color: #248a3d; }
+body.tema-claro .serverBtn:hover, body.tema-claro .serverBtn:focus {
+  background: #f5f5f7; border-color: #d2d2d7;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .16);
+}
+body.tema-claro .serverBtn.active {
+  background: #e8f2ff; border-color: #0071e3;
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, .28);
+}
+body.tema-claro .serverClose {
+  background: #f5f5f7; border-color: #e5e5ea; color: #1d1d1f; border-radius: 12px;
+}
+body.tema-claro .serverClose:hover, body.tema-claro .serverClose:focus {
+  background: #ececef; border-color: #d2d2d7; color: #1d1d1f;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18);
+}
+
+/* ---------------- Ayuda y modales ---------------- */
+body.tema-claro .helpOverlay {
+  background: rgba(245, 245, 247, .76);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+}
+body.tema-claro .helpBox {
+  background: rgba(255, 255, 255, .98);
+  border-color: #e5e5ea;
+  border-radius: 22px;
+  color: #1d1d1f;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .20);
+}
+body.tema-claro .helpBox h3 { color: #1d1d1f; letter-spacing: -.02em; }
+body.tema-claro .helpBox ul { color: #6e6e73; }
+body.tema-claro .helpBox ul b { color: #1d1d1f; }
+body.tema-claro .helpBox button {
+  background: #0071e3; color: #fff; border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0, 113, 227, .24);
+}
+body.tema-claro .helpBox button:hover { background: #0077ed; }
+body.tema-claro .helpBox button:focus {
+  outline: none; box-shadow: 0 0 0 3px rgba(0, 113, 227, .24);
+}
+body.tema-claro .helpBox .btnSecondary {
+  background: #f5f5f7; color: #1d1d1f; box-shadow: none;
+}
+body.tema-claro .helpBox .btnSecondary:hover { background: #ececef; }
+
+/* Campos del modal de alta manual */
+.modalHint { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #6e6e73; }
+.modalRow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.modalInput, .modalSelect {
+  min-height: 42px;
+  padding: 9px 12px;
+  font: inherit; font-size: 14px;
+  color: #1d1d1f;
+  background: #f5f5f7;
+  border: 1px solid #e5e5ea;
+  border-radius: 10px;
+  outline: none;
+}
+.modalInput { flex: 1 1 160px; min-width: 120px; }
+.modalSelect { flex: 0 0 auto; }
+.modalInput:focus, .modalSelect:focus {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, .18);
+}
+.modalStatus { margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: #86868b; }
+.modalActions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* En TV/movil el foco del mando debe verse siempre. */
+body.tema-claro .card:focus,
+body.tema-claro .posterCard:focus,
+body.tema-claro .episodeCard:focus,
+body.tema-claro .peItem:focus,
+body.tema-claro .serverBtn:focus {
+  outline: none;
 }

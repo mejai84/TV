@@ -2,12 +2,15 @@
 # Aplicacion web (lo que se despliega)
 # -------------------------------------------------------------------
 
-# hls.min.js es una dependencia de terceros de 413 KB.
-# Se regenera con:
+# hls.min.js es una dependencia de terceros de ~413 KB. Se versiona para que
+# la TV no dependa del CDN en tiempo de ejecucion (ver vendor/).
+# Para regenerarlo:
 #   mkdir -p vendor
 #   curl -L -o vendor/hls.min.js \
 #     https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js
-vendor/
+# Solo versionamos hls.min.js; el resto del vendor es regenerable.
+vendor/*
+!vendor/hls.min.js
 
 # Datos generados, no versionados
 epg.json

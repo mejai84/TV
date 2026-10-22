@@ -18,6 +18,7 @@ const NSRPLAY_BASE = 'https://nsrplay.space/api/v1';
 
 import { configured as dbConfigured, select as dbSelect } from '../lib/supabase.js';
 import { rowToItem } from '../lib/titles.js';
+import { commonHeaders, rateLimit } from '../lib/api-guard.js';
 
 function fixEncoding(value) {
   if (typeof value !== 'string') return value;
@@ -30,6 +31,7 @@ function fixEncoding(value) {
 }
 
 export default async function handler(req, res) {
+  commonHeaders(res);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -38,6 +40,12 @@ export default async function handler(req, res) {
     res.status(204).end();
     return;
   }
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'metodo no permitido' });
+    return;
+  }
+  if (!rateLimit(req, res, 'novelties', 120, 60 * 1000)) return;
 
   var days = parseInt(req.query.days, 10) || 14;
   if (days < 1) days = 1;
@@ -61,7 +69,8 @@ export default async function handler(req, res) {
     var key = process.env.NSRPLAY_API_KEY || '';
     try {
       var r = await fetch(NSRPLAY_BASE + '/content/resolved?type=all&days=' + days + '&limit=50', {
-        headers: key ? { 'X-API-Key': key } : {}
+        headers: key ? { 'X-API-Key': key } : {},
+        signal: AbortSignal.timeout(20000)
       });
       var d = await r.json();
       var list = (d && d.data) || [];

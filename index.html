@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#060b14">
+<meta name="theme-color" content="#f5f5f7">
 <meta name="referrer" content="no-referrer">
 <title>Televisión</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=88">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css?v=91">
 </head>
-<body class="tv">
+<body class="tv tema-claro">
 
 <!-- ================= PANTALLA CATÁLOGO ================= -->
 <section id="catalogScreen">
@@ -60,9 +60,9 @@
           <span class="proxyDot" aria-hidden="true"></span><span class="proxyLabel">Proxy</span>
         </button>
         <button id="btnSourceSelect" class="icon countryBtn" aria-label="Cambiar País o Lista" title="Cambiar País o Región" tabindex="0">&#127760;</button>
-        <button id="btnOpenSearch" class="icon" aria-label="Buscar canales" title="Buscar" tabindex="0">&#128269;</button>
-        <button id="btnRandom" class="icon" aria-label="Canal aleatorio" title="Canal aleatorio" tabindex="0">&#127922;</button>
-        <button id="btnTheme" class="icon" aria-label="Cambiar tema" title="Tema claro/oscuro" tabindex="0">&#9681;</button>
+        <button id="btnOpenSearch" class="icon" aria-label="Buscar" title="Buscar" tabindex="0">&#128269;</button>
+        <button id="btnRandom" class="icon" aria-label="Reproducir al azar" title="Reproducir al azar" tabindex="0">&#127922;</button>
+        <button id="btnTheme" class="icon" aria-label="Cambiar contraste" title="Tema claro / alto contraste" tabindex="0">&#9681;</button>
         <button id="btnFont" class="icon" aria-label="Tamaño de fuente" title="Tamaño de fuente" tabindex="0">&#128288;</button>
         <button id="btnHelp" class="icon" aria-label="Ayuda y atajos" title="Ayuda" tabindex="0">&#9432;</button>
         <button id="btnAddTitle" class="icon" aria-label="Agregar título por TMDB ID" title="Agregar por código TMDB" tabindex="0">&#43;</button>
@@ -194,6 +194,11 @@
         <span class="pbtnText">Servidor</span>
       </button>
 
+      <button id="btnOpenEmbed" class="pbtn pbtn-open" aria-label="Abrir servidor en pestaña nueva" title="Abrir en pestaña" tabindex="0" style="display:none">
+        <span class="pbtnIcon" aria-hidden="true">&#8599;</span>
+        <span class="pbtnText">Abrir</span>
+      </button>
+
       <button id="btnCopyUrl" class="pbtn pbtn-copy" aria-label="Copiar URL del stream" title="Copiar URL" tabindex="0">
         <span class="pbtnIcon" aria-hidden="true">&#128203;</span>
         <span class="pbtnText">URL</span>
@@ -240,7 +245,7 @@
 <div id="serverPanel" class="serverPanel" style="display:none" role="dialog" aria-label="Elegir servidor">
   <div class="serverBox">
     <h3>Elegir servidor</h3>
-    <p class="serverSub" id="serverPanelSub">Cambia de servidor o de idioma sin salir del capítulo.</p>
+    <p class="serverSub" id="serverPanelSub">NasriPlay no tiene anuncios. vidsrc/vidlink/vimeus pueden mostrarlos; si tapan el video, usa NasriPlay o pulsa «Abrir».</p>
     <div id="serverList" class="serverList"></div>
     <button id="serverClose" class="serverClose" tabindex="0">Cerrar</button>
   </div>
@@ -332,27 +337,27 @@
 <div id="addTitleOverlay" class="helpOverlay" style="display:none">
   <div class="helpBox">
     <h3>Agregar título por código TMDB</h3>
-    <p style="color:#b8c8dd;font-size:13px;margin:0 0 12px;">Ingresa el ID de TMDB (lo sacas de themoviedb.org) y el tipo.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <input id="addTitleId" type="text" placeholder="TMDB ID (ej. 94997)" style="flex:1;min-width:120px;padding:8px 10px;border-radius:4px;border:1px solid #1e3050;background:#060b14;color:#eaf2ff;font-size:14px;">
-      <select id="addTitleType" style="padding:8px 10px;border-radius:4px;border:1px solid #1e3050;background:#060b14;color:#eaf2ff;font-size:14px;">
+    <p class="modalHint">Ingresa el ID de TMDB (lo sacas de themoviedb.org) y el tipo.</p>
+    <div class="modalRow">
+      <input id="addTitleId" class="modalInput" type="text" inputmode="numeric" placeholder="TMDB ID (ej. 94997)">
+      <select id="addTitleType" class="modalSelect">
         <option value="movie">Película</option>
         <option value="tv">Serie</option>
       </select>
     </div>
-    <div style="display:flex;gap:8px;">
+    <div class="modalActions">
       <button id="btnAddTitleSubmit" tabindex="0">Agregar</button>
-      <button id="btnAddTitleCancel" tabindex="0">Cancelar</button>
+      <button id="btnAddTitleCancel" class="btnSecondary" tabindex="0">Cancelar</button>
     </div>
-    <p id="addTitleStatus" style="margin:10px 0 0;font-size:12px;color:#8ba0bd;"></p>
+    <p id="addTitleStatus" class="modalStatus"></p>
   </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
-<script src="js/config.js?v=88"></script>
-<script src="js/epg.js?v=88"></script>
-<script src="js/player.js?v=88"></script>
-<script src="js/app.js?v=88"></script>
+<script src="js/config.js?v=91"></script>
+<script src="js/epg.js?v=91"></script>
+<script src="js/player.js?v=91"></script>
+<script src="js/app.js?v=91"></script>
 </body>
 </html>

@@ -13,7 +13,10 @@
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_LANG = 'es-ES';
 
+import { commonHeaders, isValidTmdbId, rateLimit } from '../lib/api-guard.js';
+
 export default async function handler(req, res) {
+  commonHeaders(res);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -22,14 +25,24 @@ export default async function handler(req, res) {
     res.status(204).end();
     return;
   }
+  if (req.method !== 'GET') {
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({ error: 'metodo no permitido' });
+    return;
+  }
+  if (!rateLimit(req, res, 'tmdb', 120, 60 * 1000)) return;
 
   var action = String(req.query.action || 'details').toLowerCase();
   var type = String(req.query.type || 'movie').toLowerCase();
   var id = String(req.query.id || '').trim();
   var season = String(req.query.season || '1').trim();
 
-  if (!id) {
-    res.status(400).json({ error: 'falta id' });
+  if (!isValidTmdbId(id)) {
+    res.status(400).json({ error: 'id invalido (TMDB ID numerico)' });
+    return;
+  }
+  if (!/^\d{1,3}$/.test(season)) {
+    res.status(400).json({ error: 'season invalida' });
     return;
   }
 
@@ -54,7 +67,7 @@ export default async function handler(req, res) {
     if (action === 'details') {
       var t = (type === 'tv' || type === 'series') ? 'tv' : 'movie';
       var path = '/' + t + '/' + encodeURIComponent(id);
-      var r = await fetch(url(path), { headers: headers() });
+      var r = await fetch(url(path), { headers: headers(), signal: AbortSignal.timeout(15000) });
       if (!r.ok) {
         res.status(r.status).json({ error: 'tmdb HTTP ' + r.status });
         return;
@@ -83,7 +96,7 @@ export default async function handler(req, res) {
 
     if (action === 'season') {
       var spath = '/tv/' + encodeURIComponent(id) + '/season/' + encodeURIComponent(season);
-      var sr = await fetch(url(spath), { headers: headers() });
+      var sr = await fetch(url(spath), { headers: headers(), signal: AbortSignal.timeout(15000) });
       if (!sr.ok) {
         res.status(sr.status).json({ error: 'tmdb HTTP ' + sr.status });
         return;

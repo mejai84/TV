@@ -50,6 +50,8 @@ function Player(videoEl, statusEl) {
   this.onStreamChange = null; // callback al cambiar de servidor
   this._switching = false;  // evita failover mientras se cambia de servidor
   this._errorBound = false; // listener de error montado una sola vez
+  this._embedTimer = null;  // vence si el iframe del embed nunca carga
+  this._detaching = false;  // evita errores espurios al limpiar el <video>
 }
 
 /* ------------------------------------------------------------------ *
@@ -159,7 +161,7 @@ Player.prototype._attach = function () {
       // El elemento <video> fallo: normalmente el stream esta caido.
       // Al cambiar de servidor se limpia el src y algunos TV disparan error:
       // ese caso no debe saltar al siguiente servidor.
-      if (self._switching) return;
+      if (self._switching || self._detaching) return;
       self._onStreamError();
     });
     this._errorBound = true;
@@ -175,13 +177,31 @@ Player.prototype._openCurrent = function () {
   this._setStatus('Conectando (' + (this.current + 1) + '/' + this.streams.length + ')…');
   if (this.onStreamChange) this.onStreamChange(this.current, this.streams);
   // Modo embed (iframe): no hay HLS que cargar, solo se asigna el src.
+  // Si el iframe no dispara load en 20 s (DNS, X-Frame-Options, servidor
+  // caído), se pasa al siguiente proveedor. Los anuncios internos del
+  // embed no se pueden controlar desde aquí.
   if (this.embedMode) {
+    if (this._embedTimer) { clearTimeout(this._embedTimer); this._embedTimer = null; }
     if (this.iframe) {
+      var embedLoaded = false;
+      this.iframe.onload = function () {
+        embedLoaded = true;
+        if (self._embedTimer) { clearTimeout(self._embedTimer); self._embedTimer = null; }
+        self._setStatus('Reproduciendo · ' + (stream.label || ('servidor ' + (self.current + 1))));
+      };
+      this.iframe.onerror = function () {
+        if (self._embedTimer) { clearTimeout(self._embedTimer); self._embedTimer = null; }
+        self._onStreamError(new Error('el servidor embed no cargó'));
+      };
       this.iframe.src = stream.url;
       this.iframe.style.display = 'block';
       this.video.style.display = 'none';
+      this._embedTimer = setTimeout(function () {
+        self._embedTimer = null;
+        if (!embedLoaded) self._onStreamError(new Error('el servidor embed no respondió'));
+      }, 20000);
     }
-    this._setStatus('Reproduciendo · ' + (stream.label || ('servidor ' + (this.current + 1))));
+    this._setStatus('Conectando embed · ' + (stream.label || ('servidor ' + (this.current + 1))));
     return Promise.resolve();
   }
 
@@ -280,8 +300,9 @@ Player.prototype._onStreamError = function (err) {
   var self = this;
   this.attempt++;
 
-  // 1) Reintento del mismo servidor mientras queden intentos.
-  if (this.attempt < CONFIG.retry.attempts) {
+  // 1) Reintento del mismo servidor mientras queden intentos. En un embed
+  // no tiene sentido esperar otro ciclo de 20 s: se prueba el respaldo.
+  if (!this.embedMode && this.attempt < CONFIG.retry.attempts) {
     this._setStatus('Reintentando (' + this.attempt + '/' + (CONFIG.retry.attempts - 1) + ')…');
     this.video.removeAttribute('src');
     if (this.hls) { try { this.hls.destroy(); } catch (e) {} this.hls = null; }
@@ -295,6 +316,10 @@ Player.prototype._onStreamError = function (err) {
   if (this.current < this.streams.length) {
     this._setStatus('Servidor caído, probando respaldo…');
     this._detach();
+    // _detach() apaga embedMode; hay que recalcularlo para el siguiente
+    // servidor. Sin esto, un respaldo HLS se cargaba dentro del iframe.
+    var next = this.streams[this.current];
+    this.embedMode = Player.isEmbedUrl(next && next.url);
     setTimeout(function () { self._openCurrent(); }, 250);
     return;
   }
@@ -357,15 +382,26 @@ Player.prototype._applyLevel = function () {
  * Ciclo de vida
  * ------------------------------------------------------------------ */
 Player.prototype._detach = function () {
+  var self = this;
+  this._detaching = true;
   if (this.hls) { try { this.hls.destroy(); } catch (e) {} }
   if (this.hlsLib) { try { this.hlsLib.destroy(); } catch (e) {} }
   this.hls = null;
   this.hlsLib = null;
   this.video.removeAttribute('src');
   try { this.video.load(); } catch (e) {}
-  if (this.iframe) { this.iframe.removeAttribute('src'); this.iframe.style.display = 'none'; }
+  if (this._embedTimer) { clearTimeout(this._embedTimer); this._embedTimer = null; }
+  if (this.iframe) {
+    this.iframe.onload = null;
+    this.iframe.onerror = null;
+    this.iframe.removeAttribute('src');
+    this.iframe.style.display = 'none';
+  }
   this.video.style.display = '';
   this.embedMode = false;
+  // El error de un <video> al que se le quita el src suele llegar en el
+  // siguiente tick. Se ignora ese tick y luego se vuelve a escuchar.
+  setTimeout(function () { self._detaching = false; }, 0);
 };
 
 Player.prototype.stop = function (silent) {
