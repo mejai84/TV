@@ -1637,6 +1637,23 @@ body.embeds-mode #tabGuide { display: none !important; }
 @media (max-height: 760px) {
   #playerScreen.vod .playerStage { max-height: 52vh; max-width: 92.4vh; }
 }
+.embedHint {
+  max-width: 1120px;
+  margin: 8px auto 0;
+  padding: 8px 14px;
+  background: rgba(255, 214, 10, .12);
+  border: 1px solid rgba(255, 214, 10, .35);
+  color: #fde68a;
+  font-size: 12px;
+  line-height: 1.35;
+  border-radius: 8px;
+  text-align: center;
+}
+body.tema-claro .embedHint {
+  background: #fff8e6;
+  border-color: #f0dfb8;
+  color: #8a5a00;
+}
 #playerScreen.vod .overlay {
   top: 0; bottom: auto;
   background: linear-gradient(to bottom, rgba(4, 9, 18, 0.82) 0%, rgba(4, 9, 18, 0.30) 55%, rgba(4, 9, 18, 0) 100%);

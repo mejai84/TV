@@ -193,6 +193,7 @@
     el.band      = document.querySelector('.band');
     el.status    = $('playerStatus');
     el.playerUI  = $('playerScreen');
+    el.embedHint = $('embedHint');
     el.catalogUI = $('catalogScreen');
     el.guideUI   = $('guideScreen');
     el.epgRoot   = $('epg');
@@ -2907,6 +2908,9 @@
     }
     if (el.btnOpenEmbed) {
       el.btnOpenEmbed.style.display = (isEmbedsMode() && embed) ? 'inline-flex' : 'none';
+    }
+    if (el.embedHint) {
+      el.embedHint.style.display = (isEmbedsMode() && embed) ? 'block' : 'none';
     }
   }
 
