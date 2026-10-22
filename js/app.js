@@ -181,6 +181,7 @@
   var player = null;
   var guide = null;
   var playerControlsTimer = null;
+  var maxOverlayTimer = null;
   var el = {};
   function $(id) { return document.getElementById(id); }
 
@@ -354,6 +355,13 @@
     if (btnMute) btnMute.addEventListener('click', function () { toggleMute(); });
     var btnFs = $('btnFullscreen');
     if (btnFs) btnFs.addEventListener('click', function () { toggleFullscreen(); });
+    // En modo maximizado, mover el raton por el borde superior muestra la
+    // barra unos segundos (util en TV con raton o en navegador de escritorio).
+    if (el.playerUI) {
+      el.playerUI.addEventListener('mousemove', function () {
+        if (el.playerUI.classList.contains('maximized')) resetPlayerControlsTimer();
+      });
+    }
     // Cuando el stage entra a pantalla completa, la barra superior tapa el
     // boton de cerrar del anuncio del embed. Se oculta en ese estado.
     function syncFullscreenClass() {
@@ -1727,6 +1735,16 @@
     // solo en TV en vivo.
     if (state.screen === 'player' && !state.stopped && !isEmbedsMode()) {
       playerControlsTimer = setTimeout(hidePlayerControls, 3000);
+    }
+    // En modo maximizado la barra se oculta por defecto para ver el anuncio;
+    // cualquier tecla o movimiento del raton la trae de vuelta unos segundos.
+    if (state.screen === 'player' && isEmbedsMode() && el.playerUI &&
+        el.playerUI.classList.contains('maximized')) {
+      el.playerUI.classList.add('show-controls');
+      if (maxOverlayTimer) clearTimeout(maxOverlayTimer);
+      maxOverlayTimer = setTimeout(function () {
+        if (el.playerUI) el.playerUI.classList.remove('show-controls');
+      }, 4000);
     }
   }
 

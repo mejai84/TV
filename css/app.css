@@ -1686,7 +1686,16 @@ body.tema-claro .embedHint {
   max-height: none;
   margin: 0;
 }
-#playerScreen.vod.maximized .overlay,
+#playerScreen.vod.maximized .overlay {
+  display: block !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+#playerScreen.vod.maximized.show-controls .overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
 #playerScreen.vod.maximized .playerEpisodePanel { display: none !important; }
 /* En VOD se ocultan los botones propios de TV en vivo: la barra queda
    compacta arriba y no tapa los controles del reproductor embebido
