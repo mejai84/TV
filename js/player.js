@@ -183,6 +183,14 @@ Player.prototype._openCurrent = function () {
   if (this.embedMode) {
     if (this._embedTimer) { clearTimeout(this._embedTimer); this._embedTimer = null; }
     if (this.iframe) {
+      // Bloqueo experimental de ventanas emergentes del embed.
+      var blockPopups = false;
+      try { blockPopups = localStorage.getItem('tv_block_popups') === '1'; } catch (e) {}
+      if (blockPopups) {
+        this.iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
+      } else {
+        this.iframe.removeAttribute('sandbox');
+      }
       var embedLoaded = false;
       this.iframe.onload = function () {
         embedLoaded = true;

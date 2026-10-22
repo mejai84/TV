@@ -379,6 +379,23 @@
     });
     var btnOpenEmbed = $('btnOpenEmbed');
     if (btnOpenEmbed) btnOpenEmbed.addEventListener('click', function () { openCurrentEmbed(); });
+    var btnBlockPopups = $('btnBlockPopups');
+    if (btnBlockPopups) {
+      function syncBlockPopupsBtn() {
+        var on = false;
+        try { on = localStorage.getItem('tv_block_popups') === '1'; } catch (e) {}
+        btnBlockPopups.classList.toggle('active', on);
+        btnBlockPopups.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+      syncBlockPopupsBtn();
+      btnBlockPopups.addEventListener('click', function () {
+        var on = false;
+        try { on = localStorage.getItem('tv_block_popups') === '1'; } catch (e) {}
+        try { localStorage.setItem('tv_block_popups', on ? '0' : '1'); } catch (e) {}
+        syncBlockPopupsBtn();
+        toast(on ? 'Popups permitidos' : 'Popups bloqueados (experimental)');
+      });
+    }
     var btnAspect = $('btnAspect');
     if (btnAspect) btnAspect.addEventListener('click', function () { toggleAspect(); });
     var btnInfo = $('btnInfo');

@@ -2429,6 +2429,7 @@ body.tema-claro .pbtn.pbtn-fs:hover { background: #005bb5; border-color: #005bb5
 body.tema-claro .pbtn.pbtn-fs:focus { background: #005bb5; border-color: #005bb5; }
 body.tema-claro .pbtn.pbtn-servers { background: #e8f2ff; border-color: #cfe4ff; color: #005bb5; }
 body.tema-claro .pbtn.pbtn-open { background: #fff8e8; border-color: #f0dfb8; color: #8a5a00; }
+body.tema-claro .pbtn.pbtn-blockpopups.active { background: #ffe2e2; border-color: #ffb3b3; color: #b91c1c; }
 
 body.tema-claro .stoppedMsg {
   background: rgba(255, 255, 255, .94);
