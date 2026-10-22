@@ -2036,6 +2036,27 @@
     updateScrollHint();
 
     if (name === 'guide' && guide) guide.render();
+
+    // Mantener la URL sincronizada con la pantalla abierta, para que al
+    // recargar no se pierda la serie/pelicula que se esta viendo.
+    try {
+      if (name === 'detail' && isEmbedsMode()) {
+        var it = (seriesOverlayState && seriesOverlayState.item) || null;
+        if (it && it.id) {
+          var isS = (it.kind === 'series' || it.kind === 'tv');
+          var q = '?play=' + encodeURIComponent(it.id) + '&src=embeds&kind=' + (isS ? 'series' : 'movie');
+          if (it.tmdbId && String(it.tmdbId) !== String(it.id)) {
+            q += '&tmdb=' + encodeURIComponent(it.tmdbId);
+          }
+          window.history.replaceState(null, '', location.pathname + q);
+        }
+      } else if (name === 'catalog') {
+        var h = location.pathname + (location.search || '');
+        h = h.replace(/[?&]play=[^&]*/g, '').replace(/[?&]tmdb=[^&]*/g, '');
+        h = h.replace(/\?&/, '?').replace(/\?$/, '');
+        window.history.replaceState(null, '', h || location.pathname);
+      }
+    } catch (e) { /* history.replaceState puede fallar en algunos TV */ }
   }
 
   /* ---------------------------------------------------------------- *
