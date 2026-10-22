@@ -353,6 +353,21 @@
     if (btnMute) btnMute.addEventListener('click', function () { toggleMute(); });
     var btnFs = $('btnFullscreen');
     if (btnFs) btnFs.addEventListener('click', function () { toggleFullscreen(); });
+    // Cuando el stage entra a pantalla completa, la barra superior tapa el
+    // boton de cerrar del anuncio del embed. Se oculta en ese estado.
+    function syncFullscreenClass() {
+      var doc = document;
+      var fsEl = doc.fullscreenElement || doc.webkitFullscreenElement ||
+                 doc.mozFullScreenElement || doc.msFullscreenElement;
+      if (el.playerUI) {
+        if (fsEl) el.playerUI.classList.add('fs-active');
+        else el.playerUI.classList.remove('fs-active');
+      }
+    }
+    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange',
+     'MSFullscreenChange'].forEach(function (ev) {
+      document.addEventListener(ev, syncFullscreenClass);
+    });
     var btnOpenEmbed = $('btnOpenEmbed');
     if (btnOpenEmbed) btnOpenEmbed.addEventListener('click', function () { openCurrentEmbed(); });
     var btnAspect = $('btnAspect');
